@@ -1,0 +1,7 @@
+/**:
+  ros__parameters:
+    buzzer_pin: 27
+    default_frequency: 1000
+    default_duration: 500
+    max_frequency: 5000
+    min_frequency: 100

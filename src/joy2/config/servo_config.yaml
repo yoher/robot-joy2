@@ -1,0 +1,13 @@
+/**:
+  ros__parameters:
+    pca_address: 0x40
+    servo_frequency: 50.0
+    default_angle: 90.0
+    min_angle: 0.0
+    max_angle: 180.0
+    continuous_servos:
+      channels: [8, 9]
+      min_us: 1000.0
+      max_us: 2000.0
+      center_us: 1500.0
+      deadzone: 0.05
