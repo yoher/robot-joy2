@@ -6,7 +6,7 @@ from joy2_interfaces.msg import BuzzerCommand
 
 import sys
 import os
-from joy2.lib.hardware.buzzer import Buzzer
+from joy2.hardware.buzzer import Buzzer
 
 
 class BuzzerNode(Node):

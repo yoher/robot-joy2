@@ -35,16 +35,26 @@ def generate_launch_description():
             parameters=[],
         ),
 
+        # Joy2 Teleoperation node
+        Node(
+            package='joy2',
+            executable='joy2_teleop',
+            name='joy2_teleop',
+            output='screen',
+            parameters=[],
+        ),
+
         # Servo control node
         Node(
             package='joy2',
             executable='servo_node',
             name='servo_node',
             output='screen',
-                    parameters=[
-                {'pca_address': 0x40},
+            parameters=[
+                {'pca_address': 0x60},
                 {'servo_frequency': 50.0},
-                {'default_angle': 90.0}
+                {'allowed_continuous_channels': [8, 9]},
+                {'allow_positional': False},
             ],
         ),
 
@@ -55,13 +65,13 @@ def generate_launch_description():
         #     name='mecanum_node',
         #     output='screen',
         #     parameters=[
-        #         {'pca_address': 0x40},
+        #         {'pca_address': 0x60},
         #         {'motor_frequency': 50.0},
         #         {'translation_scale': 0.6},
         #         {'rotation_scale': 0.6}
         #     ],
         # ),
-
+        
         # # Camera streaming node
         # Node(
         #     package='joy2',
@@ -76,7 +86,7 @@ def generate_launch_description():
         #         {'device': '/dev/video0'}
         #     ],
         # ),
-
+        
         # # Web bridge node for web interface
         # Node(
         #     package='joy2',
@@ -92,7 +102,7 @@ def generate_launch_description():
         #         {'websocket.close_timeout': 5},
         #         {'security.enable_auth': True},
         #         {'security.session_timeout': 3600},
-        #         {'security.max_message_rate': 100},
+        #         {'websocket.max_message_rate': 100},
         #         {'compression.enable': True},
         #         {'compression.threshold': 1024}
         #     ],

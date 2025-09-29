@@ -30,7 +30,8 @@ setup(
             'test_talker = joy2.test_talker:main',
             'test_listener = joy2.test_listener:main',
             'buzzer_node = joy2.nodes.buzzer_node:main',
-            'servo_node = joy2.nodes.buzzer_node:main',
+            'servo_node = joy2.nodes.servo_node:main',
+            'joy2_teleop = joy2.nodes.joy2_teleop:main',
         ],
     },
 )

@@ -13,7 +13,7 @@ def generate_launch_description():
                 {'device_id': 0},
                 {'deadzone': 0.05},
                 {'autorepeat_rate': 20.0},
-                {'coalesce_interval': 0.001}
+                {'coalesce_interval': 0.01}
             ],
         ),
     ])

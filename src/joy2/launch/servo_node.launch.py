@@ -10,9 +10,8 @@ def generate_launch_description():
             name='servo_node',
             output='screen',
             parameters=[
-                {'pca_address': 0x40},
-                {'servo_frequency': 50.0},
-                {'default_angle': 90.0}
+                # Use configuration file (can be overridden via command line)
+                {'config_file': 'src/joy2/config/servo_config.yaml'}
             ],
         ),
     ])
