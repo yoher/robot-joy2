@@ -24,6 +24,9 @@ teleop:
       right_x_servo: "p1"  # Right X → positional servo p1 (channel 10)
       right_y_servo: "p2"  # Right Y → positional servo p2 (channel 11)
 
+    # Wheel control mappings (when Alt is NOT pressed)
+    wheel_deadzone: 0.05    # Deadzone for wheel control
+
     # Control sensitivity settings
     deadzone: 0.05        # Minimum joystick movement to trigger servo command
     angle_range:
@@ -34,3 +37,9 @@ teleop:
     buzzer_button_index: 1  # B button (button 1)
     buzzer_frequency: 1000  # Hz
     buzzer_duration: 500    # ms
+
+    # Wheel control settings (when Alt is not pressed)
+    wheel_control:
+      translation_scale: 0.3  # Scale factor for translation movements
+      rotation_scale: 0.3     # Scale factor for rotation
+      wheel_deadzone: 0.05    # Deadzone for wheel control

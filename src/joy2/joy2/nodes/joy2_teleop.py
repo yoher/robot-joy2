@@ -18,6 +18,9 @@ from rclpy.node import Node
 from sensor_msgs.msg import Joy
 from joy2_interfaces.msg import BuzzerCommand, ServoCommand
 from joy2.config.teleop_config_loader import TeleopConfigLoader
+from joy2.hardware.motor import DCMotorDriver
+from joy2.hardware.pca9685 import PCA9685
+from joy2.control.mecanum_controller import MecanumDriveController
 
 
 class Joy2Teleop(Node):
@@ -44,6 +47,25 @@ class Joy2Teleop(Node):
             self._config_loader = None
             return
 
+        # Initialize motor hardware for wheel control
+        try:
+            # Use same PCA as servo node (will need to be configured)
+            self._motor_pca = PCA9685(i2c_address=0x60)  # Default address
+            self._motor_pca.set_pwm_frequency(50)  # 50Hz for motors
+
+            self._motor_driver = DCMotorDriver(self._motor_pca, verbose=False)
+            self._mecanum_controller = MecanumDriveController(
+                self._motor_driver,
+                translation_scale=self._config_loader.get_wheel_translation_scale(),
+                rotation_scale=self._config_loader.get_wheel_rotation_scale(),
+                verbose=False
+            )
+            self.get_logger().info("Motor hardware initialized for wheel control")
+        except Exception as e:
+            self.get_logger().error(f"Failed to initialize motor hardware: {e}")
+            self._motor_driver = None
+            self._mecanum_controller = None
+
         # Load configuration values
         self._alt_button_index = self._config_loader.get_alt_button_index()
         self._alt_button_name = self._config_loader.get_alt_button_name()
@@ -63,6 +85,9 @@ class Joy2Teleop(Node):
         # Servo mappings (loaded from config)
         self._servo_mapping = self._config_loader.get_servo_mapping()
 
+        # Servo instances dictionary (servo_id -> servo instance)
+        self._servos = {}
+
         # Track previous button and axes state
         self._previous_buttons = None
         self._previous_axes = None
@@ -73,6 +98,11 @@ class Joy2Teleop(Node):
         self._previous_left_y_in_deadzone = True
         self._previous_right_x_in_deadzone = True
         self._previous_right_y_in_deadzone = True
+
+        # Track previous deadzone state for wheel control
+        self._previous_wheel_vx_in_deadzone = True
+        self._previous_wheel_vy_in_deadzone = True
+        self._previous_wheel_omega_in_deadzone = True
 
         # Create publishers
         self._buzzer_publisher = self.create_publisher(
@@ -99,8 +129,10 @@ class Joy2Teleop(Node):
         self.get_logger().info(f"Alt button: {self._alt_button_name} (index {self._alt_button_index})")
         self.get_logger().info(f"Buzzer button index: {self._buzzer_button_index}")
         self.get_logger().info(f"Buzzer settings - Frequency: {self._buzzer_frequency}Hz, Duration: {self._buzzer_duration}ms")
-        self.get_logger().info(f"Deadzone: {self._deadzone}")
+        self.get_logger().info(f"Servo deadzone: {self._deadzone}")
+        self.get_logger().info(f"Wheel deadzone: {self._config_loader.get_wheel_deadzone()}")
         self.get_logger().info(f"Servo mappings: {self._servo_mapping}")
+        self.get_logger().info(f"Wheel control - Translation scale: {self._config_loader.get_wheel_translation_scale()}, Rotation scale: {self._config_loader.get_wheel_rotation_scale()}")
 
     def _joy_callback(self, msg):
         """
@@ -112,7 +144,8 @@ class Joy2Teleop(Node):
         try:
             # Initialize previous states if None
             if (self._previous_buttons is None or self._previous_axes is None or
-                self._previous_left_x_in_deadzone):
+                self._previous_left_x_in_deadzone or
+                self._previous_wheel_vx_in_deadzone):
                 self._previous_buttons = list(msg.buttons)
                 self._previous_axes = list(msg.axes)
 
@@ -121,6 +154,11 @@ class Joy2Teleop(Node):
                 self._previous_left_y_in_deadzone = False
                 self._previous_right_x_in_deadzone = False
                 self._previous_right_y_in_deadzone = False
+
+                # Initialize wheel deadzone states
+                self._previous_wheel_vx_in_deadzone = False
+                self._previous_wheel_vy_in_deadzone = False
+                self._previous_wheel_omega_in_deadzone = False
                 return
 
             # Check Alt button state (R1 button 7)
@@ -148,6 +186,9 @@ class Joy2Teleop(Node):
             if self._alt_pressed:
                 self._control_servos(msg)
             else:
+                # Handle wheel control when Alt is not pressed
+                self._control_wheels(msg)
+
                 # Log when servo control is disabled but joysticks are moved
                 if self._should_log_servo_disabled(msg):
                     self.get_logger().debug("Servo control disabled - Hold R1 to control servos")
@@ -362,6 +403,103 @@ class Joy2Teleop(Node):
 
         except Exception as e:
             self.get_logger().error(f"Error sending servo command: {e}")
+
+    def _control_wheels(self, msg):
+        """
+        Control mecanum wheels when Alt is not pressed.
+
+        Args:
+            msg (Joy): Joystick message containing current axes state
+        """
+        if not self._mecanum_controller:
+            return
+
+        try:
+            # Get joystick values for wheel control
+            # Left joystick X (axis 0) for rotation (omega)
+            left_x = msg.axes[self._left_x_axis] if self._left_x_axis < len(msg.axes) else 0.0
+
+            # Right joystick for translation
+            # Right X (axis 2) for left/right strafing (vx)
+            # Right Y (axis 3) for forward/backward (vy)
+            right_x = msg.axes[self._right_x_axis] if self._right_x_axis < len(msg.axes) else 0.0
+            right_y = msg.axes[self._right_y_axis] if self._right_y_axis < len(msg.axes) else 0.0
+
+            # Map to mecanum controller inputs (ROS REP 103):
+            # vx: forward (+) / backward (-)   [right_x]
+            # vy: strafe left (+) / right (-)  [right_y]
+            # omega: positive CCW rotation     [left_x]
+            vx = -right_y    # Right X for forward/backward
+            vy = -right_x    # Right Y for strafing
+            omega = left_x  # Left X for rotation
+
+            # Check if raw values are in deadzone (before applying smooth deadzone)
+            def is_in_deadzone(value, deadzone):
+                return abs(value) < deadzone
+
+            wheel_deadzone = self._config_loader.get_wheel_deadzone()
+            current_vx_in_deadzone = is_in_deadzone(vx, wheel_deadzone)
+            current_vy_in_deadzone = is_in_deadzone(vy, wheel_deadzone)
+            current_omega_in_deadzone = is_in_deadzone(omega, wheel_deadzone)
+
+            # Apply deadzone to wheel control inputs
+            def apply_deadzone(value, deadzone):
+                if abs(value) < deadzone:
+                    return 0.0
+                else:
+                    sign = 1 if value > 0 else -1
+                    scaled_value = (abs(value) - deadzone) / (1.0 - deadzone)
+                    return sign * scaled_value
+
+            vx_scaled = apply_deadzone(vx, wheel_deadzone)
+            vy_scaled = apply_deadzone(vy, wheel_deadzone)
+            omega_scaled = apply_deadzone(omega, wheel_deadzone)
+
+            # Control wheels with return-to-center logic
+            # Send movement command if any axis is outside deadzone
+            if vx_scaled != 0.0 or vy_scaled != 0.0 or omega_scaled != 0.0:
+                # Outside deadzone - send scaled command
+                self._mecanum_controller.drive(vx_scaled, vy_scaled, omega_scaled)
+                self.get_logger().debug(f"Wheel control: vx={vx_scaled:.3f}, vy={vy_scaled:.3f}, omega={omega_scaled:.3f}")
+            else:
+                # Check if any axis transitioned into deadzone
+                any_axis_entered_deadzone = (
+                    (current_vx_in_deadzone and not self._previous_wheel_vx_in_deadzone) or
+                    (current_vy_in_deadzone and not self._previous_wheel_vy_in_deadzone) or
+                    (current_omega_in_deadzone and not self._previous_wheel_omega_in_deadzone)
+                )
+
+                if any_axis_entered_deadzone:
+                    # Transitioning into deadzone - send stop command
+                    self._mecanum_controller.drive(0.0, 0.0, 0.0)
+                    self.get_logger().debug("Wheel control: stopped (entered deadzone)")
+
+            # Update previous wheel deadzone states for next iteration
+            self._previous_wheel_vx_in_deadzone = current_vx_in_deadzone
+            self._previous_wheel_vy_in_deadzone = current_vy_in_deadzone
+            self._previous_wheel_omega_in_deadzone = current_omega_in_deadzone
+
+        except Exception as e:
+            self.get_logger().error(f"Error controlling wheels: {e}")
+
+    def destroy_node(self):
+        """
+        Cleanup when node is destroyed.
+        """
+        # Stop all servos
+        for servo_id, servo in self._servos.items():
+            if hasattr(servo, 'stop'):  # ContinuousServo has stop method
+                servo.stop()
+
+        # Stop all motors
+        if self._mecanum_controller:
+            self._mecanum_controller.stop()
+
+        # Stop all PWM signals
+        if self._pca:
+            self._pca.set_all_pwm(0, 0)  # Stop all PWM signals
+
+        super().destroy_node()
 
 
 def main(args=None):

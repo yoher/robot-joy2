@@ -91,6 +91,18 @@ class TeleopConfigLoader:
         """Get buzzer duration."""
         return int(self._config['teleop']['ros__parameters']['buzzer_duration'])
 
+    def get_wheel_translation_scale(self) -> float:
+        """Get wheel translation scale factor."""
+        return float(self._config['teleop']['ros__parameters']['wheel_control']['translation_scale'])
+
+    def get_wheel_rotation_scale(self) -> float:
+        """Get wheel rotation scale factor."""
+        return float(self._config['teleop']['ros__parameters']['wheel_control']['rotation_scale'])
+
+    def get_wheel_deadzone(self) -> float:
+        """Get wheel control deadzone."""
+        return float(self._config['teleop']['ros__parameters']['wheel_control']['wheel_deadzone'])
+
     def get_min_angle(self) -> float:
         """Get minimum angle for joystick conversion."""
         return float(self._config['teleop']['ros__parameters']['angle_range']['min'])
