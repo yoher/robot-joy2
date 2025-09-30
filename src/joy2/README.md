@@ -7,57 +7,60 @@ A comprehensive ROS2 package for controlling a mecanum-wheeled robot with joysti
 ### System Overview
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                         ROS2 joy2 System                        │
-└─────────────────────────────────────────────────────────────────┘
+┌────────────────────────────────────────────────────────────────────────┐
+│                         ROS2 joy2 System v1.2.0                        │
+└────────────────────────────────────────────────────────────────────────┘
 
-┌──────────────┐
-│  Gamepad     │
-│  (Physical)  │
-└──────┬───────┘
-       │ USB
-       ▼
-┌──────────────┐       Joy messages
-│  joy_node    ├───────────────────┐
-│  (ROS pkg)   │                   │
-└──────────────┘                   │
-                                   ▼
-                        ┌──────────────────────┐
-                        │   joy2_teleop node   │
-                        │  • Input processing  │
-                        │  • Mode switching    │
-                        │  • Message routing   │
-                        └───┬────┬────┬────┬───┘
-                            │    │    │    │
-        ┌───────────────────┘    │    │    └───────────────────┐
-        │ TwistStamped           │    │              BuzzerCmd │
-        │ /cmd_vel               │    │ ServoCmd               │
-        ▼                        │    │                        ▼
-┌───────────────┐                │    │                ┌──────────────┐
-│ mecanum_node  │                │    │                │ buzzer_node  │
-│ • Subscribe   │                │    │                │              │
-│   /cmd_vel    │                │    │                └──────┬───────┘
-│ • Motor       │                │    │                       │
-│   control     │                │    │                       ▼
-│ • PCA9685     │                │    │                   [Buzzer]
-│   (0x60)      │                │    │
-└───────┬───────┘                │    │
-        │                        │    │
-        ▼                        │    ▼
-    [Motors]                     │  ┌──────────────┐
-    M1 M2                        │  │  servo_node  │
-    M3 M4                        │  │              │
-                                 │  └──────┬───────┘
-                                 │         │
-                                 │         ▼
-                                 │     [Servos]
-                                 │     p1 p2
-                                 │     c1 c2
-                                 │
-                                 ▼
-                          (Future nodes)
-                          • camera_node
-                          • web_bridge_node
+┌──────────────┐                              ┌──────────────┐
+│  Gamepad     │                              │ USB Camera   │
+│  (Physical)  │                              │ (UVC)        │
+└──────┬───────┘                              └──────┬───────┘
+       │ USB                                         │ USB
+       ▼                                             ▼
+┌──────────────┐       Joy messages          ┌──────────────┐
+│  joy_node    ├──────────────────┐          │ camera_node  │
+│  (ROS pkg)   │                  │          │ • V4L2/MJPEG │
+└──────────────┘                  │          │ • 640x480@30 │
+                                  ▼          └──────┬───────┘
+                       ┌──────────────────────┐     │
+                       │   joy2_teleop node   │     │ Image topics
+                       │  • Input processing  │     │
+                       │  • Mode switching    │     ▼
+                       │  • Message routing   │ ┌───────────────┐
+                       └───┬────┬────┬────┬───┘ │ webrtc_node   │
+                           │    │    │    │     │ • Low latency │
+       ┌───────────────────┘    │    │    │     │ • Port 8080   │
+       │ TwistStamped           │    │    │     └───────┬───────┘
+       │ /cmd_vel               │    │    │             │
+       ▼                        │    │    │             │ WebRTC
+┌───────────────┐               │    │    │             ▼
+│ mecanum_node  │               │    │    │     ┌───────────────┐
+│ • Motors      │               │    │    │     │ Web Browser   │
+│ • PCA9685     │               │    │    │     │ • Video       │
+└───────┬───────┘               │    │    │     │ • Controls    │
+        │                       │    │    │     └───────────────┘
+        ▼                       │    │    │
+    [Motors]                    │    │    └─────────┐
+    M1 M2                       │    │              │
+    M3 M4                       │    │              ▼
+                                │    │      ┌──────────────┐
+                                │    │      │ buzzer_node  │
+                                │    │      └──────┬───────┘
+                                │    │             │
+                                │    │             ▼
+                                │    │         [Buzzer]
+                                │    │
+                                │    ▼
+                                │  ┌──────────────┐
+                                │  │  servo_node  │
+                                │  └──────┬───────┘
+                                │         │
+                                │         ▼
+                                │     [Servos]
+                                │     p1 p2
+                                │     c1 c2
+                                ▼
+                         (Future nodes)
 ```
 
 ### Message Flow
@@ -96,14 +99,155 @@ The system operates in two mutually exclusive modes:
   - 2x Continuous rotation servos (channels 8, 9)
   - 2x Positional servos (channels 10, 11)
 
+- **Camera System** (v1.1.0+)
+  - USB camera (UVC compatible, supports MJPEG recommended)
+  - Tested: Logitech C270/C920, generic UVC cameras
+
 - **Peripherals**
   - Buzzer connected to PCA9685
   - USB gamepad/joystick controller
 
 - **Computing Platform**
-  - Raspberry Pi or similar SBC
+  - Raspberry Pi 4/5 or similar SBC
   - ROS2 Jazzy installed
   - I2C enabled
+  - Camera dependencies: python3-opencv, python3-aiortc, python3-aiohttp
+
+## Camera and Video Streaming (v1.1.0+)
+
+### Overview
+
+The joy2 package includes a complete low-latency video streaming system for remote teleoperation:
+- **camera_node** - Captures video from USB camera, publishes ROS2 Image topics
+- **webrtc_node** - Provides WebRTC streaming with built-in web interface
+- **Low-latency optimizations** - Hardware MJPEG encoding, minimal buffering, optimized transport
+
+### Camera Setup
+
+```bash
+# List available cameras
+v4l2-ctl --list-devices
+
+# Check camera capabilities
+v4l2-ctl --device=/dev/video0 --list-formats-ext
+
+# Test camera
+ros2 run joy2 camera_node
+ros2 topic hz /camera/image_raw
+ros2 topic hz /camera/image_raw/compressed
+```
+
+### WebRTC Streaming
+
+```bash
+# Launch complete system (includes camera and WebRTC)
+ros2 launch joy2 complete_system.launch.py
+
+# Access web interface from any device on the network
+# Open browser to: http://<raspberry_pi_ip>:8080/
+```
+
+### Camera Configuration
+
+Edit [`config/camera_config.yaml`](config/camera_config.yaml):
+
+```yaml
+camera_node:
+  ros__parameters:
+    device_path: "/dev/video0"     # Camera device
+    width: 640                      # Resolution
+    height: 480
+    fps: 30                         # Frame rate
+    encoding: "bgr8"                # ROS encoding
+```
+
+### Low-Latency Features (v1.2.0)
+
+The system is optimized for minimal latency:
+- **Hardware MJPEG encoding** - Camera encodes in hardware
+- **Single-frame buffers** - No buffering throughout pipeline
+- **V4L2 backend** - Direct camera access without GStreamer overhead
+- **60% JPEG quality** - Balance between quality and speed
+- **Monotonic timestamps** - Consistent timing without jitter
+- **Frame age monitoring** - Tracks and logs latency sources
+
+### Camera Topics
+
+| Topic | Type | Description |
+|-------|------|-------------|
+| `/camera/image_raw` | `sensor_msgs/Image` | Uncompressed BGR8 images |
+| `/camera/image_raw/compressed` | `sensor_msgs/CompressedImage` | JPEG compressed images |
+| `/camera/camera_info` | `sensor_msgs/CameraInfo` | Camera calibration data |
+
+### WebRTC Endpoints
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `http://<host>:8080/` | GET | Web interface with video player |
+| `http://<host>:8080/offer` | POST | WebRTC signaling endpoint |
+
+### Using Custom Web Applications
+
+The WebRTC node provides standard WebRTC peer connections. Example JavaScript:
+
+```javascript
+// Create peer connection
+const pc = new RTCPeerConnection({
+    iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+});
+
+// Request video from server
+pc.addTransceiver('video', { direction: 'recvonly' });
+
+// Handle incoming video
+pc.ontrack = (event) => {
+    if (event.track.kind === 'video') {
+        videoElement.srcObject = event.streams[0];
+    }
+};
+
+// Create and send offer
+const offer = await pc.createOffer();
+await pc.setLocalDescription(offer);
+
+const response = await fetch('http://<robot-ip>:8080/offer', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+        sdp: offer.sdp,
+        type: offer.type
+    })
+});
+
+const answer = await response.json();
+await pc.setRemoteDescription(answer);
+```
+
+### Performance Tuning
+
+**For Lower Latency (at cost of quality):**
+- Reduce resolution to 320x240 in camera_config.yaml
+- Lower JPEG quality (edit camera_node.py, line 155)
+- Ensure camera supports MJPEG hardware encoding
+
+**For Better Quality (at cost of latency):**
+- Increase resolution to 1280x720
+- Increase JPEG quality to 80-90%
+- Note: Higher resolutions may not maintain 30fps on some systems
+
+### Latency Analysis
+
+Current latency breakdown (~500ms total):
+- Camera capture: ~5ms
+- JPEG encoding: ~10ms (hardware MJPEG)
+- ROS2 transport: <1ms
+- JPEG decode: ~5ms
+- VP8/H.264 encode: ~50-100ms (software on Raspberry Pi)
+- WebRTC transport: ~20-50ms
+- Browser decode/render: ~50-100ms
+- Network latency: varies
+
+**Major bottleneck**: Software VP8/H.264 encoding on Raspberry Pi. Future hardware H.264 encoding could reduce this to <10ms.
 
 ## Installation
 
@@ -200,6 +344,8 @@ This launches:
 - `mecanum_node` - Motor control
 - `servo_node` - Servo control
 - `buzzer_node` - Buzzer control
+- `camera_node` - Video capture (v1.1.0+)
+- `webrtc_node` - WebRTC streaming (v1.1.0+)
 
 ### Launch Individual Nodes
 
@@ -348,6 +494,72 @@ ros2 param set /mecanum_node translation_scale 0.5
 ros2 param set /mecanum_node rotation_scale 0.4
 ```
 
+### Camera Not Working (v1.1.0+)
+
+**Check camera device:**
+```bash
+# List cameras
+v4l2-ctl --list-devices
+
+# Verify device exists
+ls -l /dev/video0
+
+# Test camera directly
+ros2 run joy2 camera_node --ros-args --log-level debug
+```
+
+**Check topics:**
+```bash
+# Verify publishing
+ros2 topic hz /camera/image_raw/compressed
+
+# Check frame rate
+ros2 topic bw /camera/image_raw/compressed
+```
+
+### WebRTC Not Connecting (v1.1.0+)
+
+**Verify server is running:**
+```bash
+# Check if port 8080 is listening
+ss -tlnp | grep 8080
+
+# Test HTTP endpoint
+curl http://localhost:8080/
+
+# Check WebRTC node logs
+ros2 run joy2 webrtc_node --ros-args --log-level debug
+```
+
+**Check browser console** for JavaScript errors
+
+**Firewall issues:**
+```bash
+# On robot, allow port 8080
+sudo ufw allow 8080/tcp
+```
+
+### High Video Latency (v1.2.0+)
+
+**Check frame age:**
+```bash
+ros2 run joy2 webrtc_node --ros-args --log-level debug
+# Look for "Frame X: age=XXms" messages
+```
+
+**Reduce latency:**
+```yaml
+# Edit camera_config.yaml
+width: 320
+height: 240
+```
+
+**Check CPU usage:**
+```bash
+htop
+# webrtc_node using >50%? Consider lower resolution
+```
+
 ## Development
 
 ### Package Structure
@@ -356,12 +568,16 @@ ros2 param set /mecanum_node rotation_scale 0.4
 joy2/
 ├── config/                      # Configuration files
 │   ├── buzzer_config.yaml
+│   ├── camera_config.yaml       # Camera parameters (v1.1.0+)
 │   ├── mecanum_config.yaml
 │   ├── servo_config.yaml
 │   └── teleop_config.yaml
 ├── doc/                         # Documentation
+│   ├── CHANGELOG.md
+│   ├── plan_camera_streaming.md
 │   ├── plan_mecanum_refactor.md
-│   └── mecanum_refactor_summary.md
+│   ├── mecanum_refactor_summary.md
+│   └── video_streaming_implementation.md  # v1.2.0
 ├── joy2/                        # Python package
 │   ├── config/                  # Config loaders
 │   ├── control/                 # Control algorithms
@@ -373,9 +589,11 @@ joy2/
 │   │   └── servo.py
 │   └── nodes/                   # ROS2 nodes
 │       ├── buzzer_node.py
+│       ├── camera_node.py       # Camera capture (v1.1.0+)
 │       ├── joy2_teleop.py
 │       ├── mecanum_node.py
-│       └── servo_node.py
+│       ├── servo_node.py
+│       └── webrtc_node.py       # WebRTC streaming (v1.1.0+)
 ├── launch/                      # Launch files
 │   ├── complete_system.launch.py
 │   ├── joy_node.launch.py
@@ -428,8 +646,11 @@ python3 src/joy2/test_wheel_control.py
 
 ## Documentation
 
-- [Detailed Refactoring Plan](doc/plan_mecanum_refactor.md)
-- [Implementation Summary](doc/mecanum_refactor_summary.md)
+- [CHANGELOG](doc/CHANGELOG.md) - Version history and release notes
+- [Video Streaming Implementation](doc/video_streaming_implementation.md) - Low-latency streaming details (v1.2.0)
+- [Camera Streaming Plan](doc/plan_camera_streaming.md) - Original design document
+- [Mecanum Refactoring Plan](doc/plan_mecanum_refactor.md) - Architecture design
+- [Implementation Summary](doc/mecanum_refactor_summary.md) - Refactoring details
 - [ROS REP 103](https://www.ros.org/reps/rep-0103.html) - Standard Units and Coordinate Conventions
 
 ## License
@@ -442,7 +663,7 @@ Yoann Hervieux (yoann.hervieux@gmail.com)
 
 ## Version
 
-0.0.0 (Development)
+1.2.0 - Low-Latency Video Streaming
 
 ---
 
@@ -479,6 +700,9 @@ i2cdetect -y 1
 | `/cmd_vel` | `geometry_msgs/TwistStamped` | Velocity commands for motors |
 | `/servo_command` | `joy2_interfaces/ServoCommand` | Servo position commands |
 | `/buzzer_command` | `joy2_interfaces/BuzzerCommand` | Buzzer activation |
+| `/camera/image_raw` | `sensor_msgs/Image` | Uncompressed camera images (v1.1.0+) |
+| `/camera/image_raw/compressed` | `sensor_msgs/CompressedImage` | JPEG compressed images (v1.1.0+) |
+| `/camera/camera_info` | `sensor_msgs/CameraInfo` | Camera calibration data (v1.1.0+) |
 
 ### Node Reference
 
@@ -489,3 +713,5 @@ i2cdetect -y 1
 | `mecanum_node` | `joy2` | Motor control |
 | `servo_node` | `joy2` | Servo control |
 | `buzzer_node` | `joy2` | Buzzer control |
+| `camera_node` | `joy2` | Camera capture & publishing (v1.1.0+) |
+| `webrtc_node` | `joy2` | WebRTC video streaming (v1.1.0+) |

@@ -98,10 +98,16 @@ class CameraNode(Node):
                     f'Could not open camera {self.device_path} or device ID {self.device_id}'
                 )
 
+            # Set camera to use MJPEG format for hardware encoding (lower latency)
+            self.cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*'MJPG'))
+            
             # Set camera properties
             self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, self.width)
             self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, self.height)
             self.cap.set(cv2.CAP_PROP_FPS, self.fps)
+            
+            # Disable auto-buffering for minimal latency
+            self.cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
 
             # Verify settings were applied
             actual_width = self.cap.get(cv2.CAP_PROP_FRAME_WIDTH)
@@ -136,7 +142,24 @@ class CameraNode(Node):
             # Get current timestamp
             now = self.get_clock().now()
 
-            # Convert to ROS Image message
+            # Publish compressed image first (priority for WebRTC)
+            try:
+                compressed_msg = CompressedImage()
+                compressed_msg.header.stamp = now.to_msg()
+                compressed_msg.header.frame_id = self.frame_id
+                compressed_msg.format = "jpeg"
+
+                # Encode frame as JPEG with lower quality for reduced latency
+                encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), 60]  # 60% quality for low latency
+                _, encoded_img = cv2.imencode('.jpg', frame, encode_param)
+                compressed_msg.data = encoded_img.tobytes()
+
+                self.compressed_pub.publish(compressed_msg)
+
+            except Exception as e:
+                self.get_logger().error(f'Failed to publish compressed image: {e}')
+
+            # Convert to ROS Image message (for other subscribers like rviz)
             try:
                 img_msg = self.bridge.cv2_to_imgmsg(frame, encoding=self.encoding)
                 img_msg.header.stamp = now.to_msg()
@@ -144,22 +167,6 @@ class CameraNode(Node):
 
                 # Publish image
                 self.image_pub.publish(img_msg)
-
-                # Publish compressed image
-                try:
-                    compressed_msg = CompressedImage()
-                    compressed_msg.header = img_msg.header
-                    compressed_msg.format = "jpeg"
-
-                    # Encode frame as JPEG with lower quality for reduced latency
-                    encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), 60]  # 60% quality for low latency
-                    _, encoded_img = cv2.imencode('.jpg', frame, encode_param)
-                    compressed_msg.data = encoded_img.tobytes()
-
-                    self.compressed_pub.publish(compressed_msg)
-
-                except Exception as e:
-                    self.get_logger().error(f'Failed to publish compressed image: {e}')
 
             except Exception as e:
                 self.get_logger().error(f'Failed to convert/publish image: {e}')

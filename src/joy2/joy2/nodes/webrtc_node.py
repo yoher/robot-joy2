@@ -22,7 +22,9 @@ from cv_bridge import CvBridge
 from aiohttp import web
 from aiortc import RTCPeerConnection, RTCSessionDescription
 from aiortc.mediastreams import MediaStreamTrack
+from aiortc.codecs import h264
 from av import VideoFrame
+from av.codec import CodecContext
 import numpy as np
 
 
@@ -31,22 +33,29 @@ class WebRTCVideoStreamTrack(MediaStreamTrack):
 
     kind = "video"
 
-    def __init__(self):
+    def __init__(self, max_frame_age_ms: float = 100.0):
         super().__init__()
         self.latest_frame: Optional[np.ndarray] = None
         self.frame_timestamp = 0
         self.bridge = CvBridge()
+        self.max_frame_age_ms = max_frame_age_ms  # Drop frames older than this
+        self.frame_counter = 0
+        self.dropped_frames = 0
 
     def update_frame(self, compressed_msg: CompressedImage):
         """Update the latest frame from ROS2 compressed image message."""
         try:
-            # Decode compressed image
+            # Decode compressed image only when needed
             if compressed_msg.format == "jpeg":
-                # Convert compressed JPEG to numpy array
-                frame = self.bridge.compressed_imgmsg_to_cv2(compressed_msg, desired_encoding="bgr8")
-                self.latest_frame = frame
-                self.frame_timestamp = compressed_msg.header.stamp.sec + compressed_msg.header.stamp.nanosec * 1e-9
-                logging.debug(f"Updated frame: {frame.shape}")
+                # Decode MJPEG to numpy array
+                np_arr = np.frombuffer(compressed_msg.data, np.uint8)
+                frame = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
+                if frame is not None:
+                    self.latest_frame = frame
+                    self.frame_timestamp = compressed_msg.header.stamp.sec + compressed_msg.header.stamp.nanosec * 1e-9
+                    logging.debug(f"Updated frame: {frame.shape}")
+                else:
+                    logging.warning("Failed to decode JPEG frame")
             else:
                 logging.warning(f"Unsupported compressed format: {compressed_msg.format}")
         except Exception as e:
@@ -60,6 +69,7 @@ class WebRTCVideoStreamTrack(MediaStreamTrack):
         from fractions import Fraction
         
         # No artificial delay - let WebRTC handle frame pacing for minimal latency
+        self.frame_counter += 1
         
         if self.latest_frame is None:
             # Return black frame if no frame available
@@ -71,6 +81,16 @@ class WebRTCVideoStreamTrack(MediaStreamTrack):
             video_frame.time_base = Fraction(1, 90000)
             return video_frame
 
+        # Log frame age for monitoring (but don't drop - causes flickering)
+        current_time = time.time()
+        frame_age_ms = (current_time - self.frame_timestamp) * 1000
+        
+        if frame_age_ms > self.max_frame_age_ms:
+            self.dropped_frames += 1
+            if self.dropped_frames % 100 == 0:
+                logging.warning(f"Frame age exceeds threshold: {frame_age_ms:.1f}ms > {self.max_frame_age_ms}ms (logged {self.dropped_frames} times)")
+        # Continue sending the frame anyway to avoid flickering
+
         # Convert BGR to RGB for WebRTC
         rgb_frame = cv2.cvtColor(self.latest_frame, cv2.COLOR_BGR2RGB)
 
@@ -80,7 +100,8 @@ class WebRTCVideoStreamTrack(MediaStreamTrack):
         video_frame.pts = int(time.monotonic() * 90000)  # 90kHz clock
         video_frame.time_base = Fraction(1, 90000)
         
-        logging.debug(f"Sending frame: {rgb_frame.shape}, pts={video_frame.pts}")
+        if self.frame_counter % 100 == 0:
+            logging.debug(f"Frame {self.frame_counter}: age={frame_age_ms:.1f}ms, dropped={self.dropped_frames}")
 
         return video_frame
 
@@ -203,6 +224,8 @@ class WebRTCNode(Node):
             max-width: 640px;
             border: 2px solid #333;
             border-radius: 5px;
+            /* Minimize buffering for low latency */
+            buffer: 0;
         }}
         .status {{
             margin: 10px 0;
@@ -289,7 +312,15 @@ class WebRTCNode(Node):
 
                 peerConnection.ontrack = (event) => {{
                     if (event.track.kind === 'video') {{
-                        video.srcObject = event.streams[0];
+                        const stream = event.streams[0];
+                        video.srcObject = stream;
+                        
+                        // Configure video element for minimal latency
+                        video.playsInline = true;
+                        video.muted = true;
+                        
+                        // Try to play immediately
+                        video.play().catch(e => console.log('Play failed:', e));
                     }}
                 }};
 

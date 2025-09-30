@@ -302,8 +302,8 @@ Yoann Hervieux (yoann.hervieux@gmail.com)
 
 ## Version
 
-- **joy2:** 1.1.0 (Camera streaming with WebRTC)
-- **joy2_interfaces:** 0.0.0 (Development)
+- **joy2:** 1.2.0 (Camera streaming with WebRTC)
+- **joy2_interfaces:** 1.0.0 (Initial release)
 - **ROS2 Distribution:** Jazzy
 
 ## Additional Resources
