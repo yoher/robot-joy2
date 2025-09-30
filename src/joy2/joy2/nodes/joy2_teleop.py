@@ -16,11 +16,9 @@
 import rclpy
 from rclpy.node import Node
 from sensor_msgs.msg import Joy
+from geometry_msgs.msg import TwistStamped
 from joy2_interfaces.msg import BuzzerCommand, ServoCommand
 from joy2.config.teleop_config_loader import TeleopConfigLoader
-from joy2.hardware.motor import DCMotorDriver
-from joy2.hardware.pca9685 import PCA9685
-from joy2.control.mecanum_controller import MecanumDriveController
 
 
 class Joy2Teleop(Node):
@@ -46,25 +44,6 @@ class Joy2Teleop(Node):
             self.get_logger().error(f"Failed to load teleop configuration: {e}")
             self._config_loader = None
             return
-
-        # Initialize motor hardware for wheel control
-        try:
-            # Use same PCA as servo node (will need to be configured)
-            self._motor_pca = PCA9685(i2c_address=0x60)  # Default address
-            self._motor_pca.set_pwm_frequency(50)  # 50Hz for motors
-
-            self._motor_driver = DCMotorDriver(self._motor_pca, verbose=False)
-            self._mecanum_controller = MecanumDriveController(
-                self._motor_driver,
-                translation_scale=self._config_loader.get_wheel_translation_scale(),
-                rotation_scale=self._config_loader.get_wheel_rotation_scale(),
-                verbose=False
-            )
-            self.get_logger().info("Motor hardware initialized for wheel control")
-        except Exception as e:
-            self.get_logger().error(f"Failed to initialize motor hardware: {e}")
-            self._motor_driver = None
-            self._mecanum_controller = None
 
         # Load configuration values
         self._alt_button_index = self._config_loader.get_alt_button_index()
@@ -117,6 +96,13 @@ class Joy2Teleop(Node):
             10
         )
 
+        # Create publisher for velocity commands (mecanum wheel control)
+        self._cmd_vel_publisher = self.create_publisher(
+            TwistStamped,
+            'cmd_vel',
+            10
+        )
+
         # Create subscription to joy topic
         self._joy_subscription = self.create_subscription(
             Joy,
@@ -132,7 +118,7 @@ class Joy2Teleop(Node):
         self.get_logger().info(f"Servo deadzone: {self._deadzone}")
         self.get_logger().info(f"Wheel deadzone: {self._config_loader.get_wheel_deadzone()}")
         self.get_logger().info(f"Servo mappings: {self._servo_mapping}")
-        self.get_logger().info(f"Wheel control - Translation scale: {self._config_loader.get_wheel_translation_scale()}, Rotation scale: {self._config_loader.get_wheel_rotation_scale()}")
+        self.get_logger().info("Publishing velocity commands to /cmd_vel topic")
 
     def _joy_callback(self, msg):
         """
@@ -171,9 +157,8 @@ class Joy2Teleop(Node):
             # Log Alt button state changes
             if current_alt_state == 1 and previous_alt_state == 0:
                 self.get_logger().info(f"{self._alt_button_name} pressed - Servo control enabled")
-                # Stop wheel motors when switching to servo mode
-                if self._mecanum_controller:
-                    self._mecanum_controller.stop()
+                # Send zero velocity command when switching to servo mode
+                self._send_zero_velocity()
             elif current_alt_state == 0 and previous_alt_state == 1:
                 self.get_logger().info(f"{self._alt_button_name} released - Servo control disabled")
 
@@ -409,14 +394,11 @@ class Joy2Teleop(Node):
 
     def _control_wheels(self, msg):
         """
-        Control mecanum wheels when Alt is not pressed.
+        Publish velocity commands for mecanum wheels when Alt is not pressed.
 
         Args:
             msg (Joy): Joystick message containing current axes state
         """
-        if not self._mecanum_controller:
-            return
-
         try:
             # Get joystick values for wheel control
             # Left joystick X (axis 0) for rotation (omega)
@@ -429,12 +411,12 @@ class Joy2Teleop(Node):
             right_y = msg.axes[self._right_y_axis] if self._right_y_axis < len(msg.axes) else 0.0
 
             # Map to mecanum controller inputs (ROS REP 103):
-            # vx: forward (+) / backward (-)   [right_x]
-            # vy: strafe left (+) / right (-)  [right_y]
+            # vx: forward (+) / backward (-)   [right_y]
+            # vy: strafe left (+) / right (-)  [right_x]
             # omega: positive CCW rotation     [left_x]
-            vx = -right_y    # Right X for forward/backward
-            vy = -right_x    # Right Y for strafing
-            omega = left_x  # Left X for rotation
+            vx = -right_y    # Right Y for forward/backward
+            vy = -right_x    # Right X for strafing
+            omega = left_x   # Left X for rotation
 
             # Check if raw values are in deadzone (before applying smooth deadzone)
             def is_in_deadzone(value, deadzone):
@@ -458,25 +440,20 @@ class Joy2Teleop(Node):
             vy_scaled = apply_deadzone(vy, wheel_deadzone)
             omega_scaled = apply_deadzone(omega, wheel_deadzone)
 
-            # Control wheels with return-to-center logic
-            # Send movement command if any axis is outside deadzone
-            if vx_scaled != 0.0 or vy_scaled != 0.0 or omega_scaled != 0.0:
-                # Outside deadzone - send scaled command
-                self._mecanum_controller.drive(vx_scaled, vy_scaled, omega_scaled)
-                self.get_logger().debug(f"Wheel control: vx={vx_scaled:.3f}, vy={vy_scaled:.3f}, omega={omega_scaled:.3f}")
-            else:
-                # All axes in deadzone - ensure motors are stopped
-                # Check if all axes are currently in deadzone
-                all_axes_in_deadzone = (
-                    current_vx_in_deadzone and
-                    current_vy_in_deadzone and
-                    current_omega_in_deadzone
-                )
+            # Publish velocity command
+            twist_msg = TwistStamped()
+            twist_msg.header.stamp = self.get_clock().now().to_msg()
+            twist_msg.header.frame_id = 'base_link'
+            twist_msg.twist.linear.x = vx_scaled
+            twist_msg.twist.linear.y = vy_scaled
+            twist_msg.twist.angular.z = omega_scaled
 
-                if all_axes_in_deadzone:
-                    # All axes in deadzone - send stop command to ensure motors are stopped
-                    self._mecanum_controller.drive(0.0, 0.0, 0.0)
-                    self.get_logger().debug("Wheel control: stopped (all axes in deadzone)")
+            self._cmd_vel_publisher.publish(twist_msg)
+
+            if vx_scaled != 0.0 or vy_scaled != 0.0 or omega_scaled != 0.0:
+                self.get_logger().debug(
+                    f"Publishing velocity: vx={vx_scaled:.3f}, vy={vy_scaled:.3f}, omega={omega_scaled:.3f}"
+                )
 
             # Update previous wheel deadzone states for next iteration
             self._previous_wheel_vx_in_deadzone = current_vx_in_deadzone
@@ -484,28 +461,37 @@ class Joy2Teleop(Node):
             self._previous_wheel_omega_in_deadzone = current_omega_in_deadzone
 
         except Exception as e:
-            self.get_logger().error(f"Error controlling wheels: {e}")
+            self.get_logger().error(f"Error publishing velocity command: {e}")
+
+    def _send_zero_velocity(self):
+        """
+        Send a zero velocity command to stop the robot.
+        """
+        try:
+            twist_msg = TwistStamped()
+            twist_msg.header.stamp = self.get_clock().now().to_msg()
+            twist_msg.header.frame_id = 'base_link'
+            twist_msg.twist.linear.x = 0.0
+            twist_msg.twist.linear.y = 0.0
+            twist_msg.twist.angular.z = 0.0
+
+            self._cmd_vel_publisher.publish(twist_msg)
+            self.get_logger().debug("Sent zero velocity command")
+
+        except Exception as e:
+            self.get_logger().error(f"Error sending zero velocity: {e}")
 
     def destroy_node(self):
         """
         Cleanup when node is destroyed.
         """
+        # Send final zero velocity command
+        self._send_zero_velocity()
+
         # Stop all servos
         for servo_id, servo in self._servos.items():
             if hasattr(servo, 'stop'):  # ContinuousServo has stop method
                 servo.stop()
-
-        # Stop all motors and ensure they are released
-        if self._mecanum_controller:
-            self._mecanum_controller.stop()
-
-        # Ensure all motors are stopped by releasing them directly
-        if self._motor_driver:
-            self._motor_driver.release_all()
-
-        # Stop all PWM signals
-        if self._pca:
-            self._pca.set_all_pwm(0, 0)  # Stop all PWM signals
 
         super().destroy_node()
 

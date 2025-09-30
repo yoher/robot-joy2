@@ -32,6 +32,7 @@ setup(
             'buzzer_node = joy2.nodes.buzzer_node:main',
             'servo_node = joy2.nodes.servo_node:main',
             'joy2_teleop = joy2.nodes.joy2_teleop:main',
+            'mecanum_node = joy2.nodes.mecanum_node:main',
         ],
     },
 )

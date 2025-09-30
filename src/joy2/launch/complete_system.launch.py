@@ -58,19 +58,23 @@ def generate_launch_description():
             ],
         ),
 
-        # # Mecanum drive control node
-        # Node(
-        #     package='joy2',
-        #     executable='mecanum_node',
-        #     name='mecanum_node',
-        #     output='screen',
-        #     parameters=[
-        #         {'pca_address': 0x60},
-        #         {'motor_frequency': 50.0},
-        #         {'translation_scale': 0.6},
-        #         {'rotation_scale': 0.6}
-        #     ],
-        # ),
+        # Mecanum drive control node
+        Node(
+            package='joy2',
+            executable='mecanum_node',
+            name='mecanum_node',
+            output='screen',
+            parameters=[
+                {'pca_address': 0x60},
+                {'motor_frequency': 50.0},
+                {'translation_scale': 0.6},
+                {'rotation_scale': 0.6},
+                {'eps': 0.02},
+                {'invert_omega': False},
+                {'verbose': False},
+                {'cmd_timeout': 1.0}
+            ],
+        ),
         
         # # Camera streaming node
         # Node(
