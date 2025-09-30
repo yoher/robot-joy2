@@ -171,6 +171,9 @@ class Joy2Teleop(Node):
             # Log Alt button state changes
             if current_alt_state == 1 and previous_alt_state == 0:
                 self.get_logger().info(f"{self._alt_button_name} pressed - Servo control enabled")
+                # Stop wheel motors when switching to servo mode
+                if self._mecanum_controller:
+                    self._mecanum_controller.stop()
             elif current_alt_state == 0 and previous_alt_state == 1:
                 self.get_logger().info(f"{self._alt_button_name} released - Servo control disabled")
 
@@ -462,17 +465,18 @@ class Joy2Teleop(Node):
                 self._mecanum_controller.drive(vx_scaled, vy_scaled, omega_scaled)
                 self.get_logger().debug(f"Wheel control: vx={vx_scaled:.3f}, vy={vy_scaled:.3f}, omega={omega_scaled:.3f}")
             else:
-                # Check if any axis transitioned into deadzone
-                any_axis_entered_deadzone = (
-                    (current_vx_in_deadzone and not self._previous_wheel_vx_in_deadzone) or
-                    (current_vy_in_deadzone and not self._previous_wheel_vy_in_deadzone) or
-                    (current_omega_in_deadzone and not self._previous_wheel_omega_in_deadzone)
+                # All axes in deadzone - ensure motors are stopped
+                # Check if all axes are currently in deadzone
+                all_axes_in_deadzone = (
+                    current_vx_in_deadzone and
+                    current_vy_in_deadzone and
+                    current_omega_in_deadzone
                 )
 
-                if any_axis_entered_deadzone:
-                    # Transitioning into deadzone - send stop command
+                if all_axes_in_deadzone:
+                    # All axes in deadzone - send stop command to ensure motors are stopped
                     self._mecanum_controller.drive(0.0, 0.0, 0.0)
-                    self.get_logger().debug("Wheel control: stopped (entered deadzone)")
+                    self.get_logger().debug("Wheel control: stopped (all axes in deadzone)")
 
             # Update previous wheel deadzone states for next iteration
             self._previous_wheel_vx_in_deadzone = current_vx_in_deadzone
@@ -491,9 +495,13 @@ class Joy2Teleop(Node):
             if hasattr(servo, 'stop'):  # ContinuousServo has stop method
                 servo.stop()
 
-        # Stop all motors
+        # Stop all motors and ensure they are released
         if self._mecanum_controller:
             self._mecanum_controller.stop()
+
+        # Ensure all motors are stopped by releasing them directly
+        if self._motor_driver:
+            self._motor_driver.release_all()
 
         # Stop all PWM signals
         if self._pca:
