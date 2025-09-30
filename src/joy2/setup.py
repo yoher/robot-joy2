@@ -1,5 +1,5 @@
 from glob import glob
-from  os import path
+from os import path
 from setuptools import find_packages, setup
 
 package_name = 'joy2'
@@ -13,6 +13,7 @@ setup(
             ['resource/' + package_name]),
         ('share/' + package_name, ['package.xml']),
         (path.join('share', package_name, 'launch'), glob(path.join('launch', '*launch.py'))),
+        (path.join('share', package_name, 'urdf'), glob(path.join('description', 'urdf', '*.xacro'))),
     ],
     install_requires=['setuptools'],
     zip_safe=True,
