@@ -5,7 +5,7 @@ from launch_ros.actions import Node
 
 def generate_launch_description():
     return LaunchDescription([
-        
+
         SetEnvironmentVariable(
             name='RCUTILS_CONSOLE_OUTPUT_FORMAT',
             # value='[{time}] [{severity}] [{name}]: {message}'
@@ -76,20 +76,35 @@ def generate_launch_description():
             ],
         ),
         
-        # # Camera streaming node
-        # Node(
-        #     package='joy2',
-        #     executable='camera_node',
-        #     name='camera_node',
-        #     output='screen',
-        #     parameters=[
-        #         {'camera_id': 0},
-        #         {'width': 640},
-        #         {'height': 480},
-        #         {'fps': 30},
-        #         {'device': '/dev/video0'}
-        #     ],
-        # ),
+        # Camera streaming node
+        Node(
+            package='joy2',
+            executable='camera_node',
+            name='camera_node',
+            output='screen',
+            parameters=[
+                {'device_id': 0},
+                {'device_path': '/dev/video0'},
+                {'width': 640},
+                {'height': 480},
+                {'fps': 30},
+                {'frame_id': 'camera_optical_frame'},
+                {'publish_camera_info': True}
+            ],
+        ),
+
+        # WebRTC streaming node
+        Node(
+            package='joy2',
+            executable='webrtc_node',
+            name='webrtc_node',
+            output='screen',
+            parameters=[
+                {'port': 8080},
+                {'host': '0.0.0.0'},
+                {'camera_topic': 'camera/image_raw/compressed'}
+            ],
+        ),
         
         # # Web bridge node for web interface
         # Node(

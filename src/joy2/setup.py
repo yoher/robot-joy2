@@ -6,7 +6,7 @@ package_name = 'joy2'
 
 setup(
     name=package_name,
-    version='0.0.0',
+    version='1.1.0',
     packages=find_packages(exclude=['test']),
     data_files=[
         ('share/ament_index/resource_index/packages',
@@ -33,6 +33,8 @@ setup(
             'servo_node = joy2.nodes.servo_node:main',
             'joy2_teleop = joy2.nodes.joy2_teleop:main',
             'mecanum_node = joy2.nodes.mecanum_node:main',
+            'camera_node = joy2.nodes.camera_node:main',
+            'webrtc_node = joy2.nodes.webrtc_node:main',
         ],
     },
 )

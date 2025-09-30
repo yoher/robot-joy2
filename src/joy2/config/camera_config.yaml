@@ -1,0 +1,34 @@
+# Camera Configuration for Joy2 ROS2
+# This file configures the camera_node for video capture and streaming
+
+camera_node:
+  ros__parameters:
+    # Hardware Configuration
+    device_id: 0                      # /dev/video0 (alternative to device_path)
+    device_path: "/dev/video0"        # Preferred device path
+
+    # Image Format
+    width: 640                        # Image width in pixels
+    height: 480                       # Image height in pixels
+    fps: 30                           # Target frames per second
+    encoding: "bgr8"                  # OpenCV encoding (bgr8, rgb8, mono8)
+
+    # ROS Configuration
+    frame_id: "camera_optical_frame"  # TF frame for camera
+    camera_name: "usb_camera"         # Camera identifier for calibration
+
+    # Publishing Options
+    publish_camera_info: true         # Publish camera_info topic for VSLAM
+    buffer_size: 1                    # QoS depth (keep latest frame only)
+
+    # Performance Tuning
+    # Lower values reduce latency but may drop frames under load
+    # Higher values provide smoother streaming but increase latency
+    # Recommended: 640x480@30fps for teleoperation
+    # Recommended: 1280x720@30fps for VSLAM (if camera supports)
+
+# Notes:
+# - Camera calibration data should be stored separately (e.g., camera_info/camera_name.yaml)
+# - For VSLAM applications, use higher resolution and ensure proper camera calibration
+# - For teleoperation, prioritize low latency over high resolution
+# - The camera_node automatically creates compressed topics when image_transport is available

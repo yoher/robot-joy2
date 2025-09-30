@@ -110,23 +110,162 @@ ros2 launch joy2 complete_system.launch.py
 None at this time.
 
 ### Future Enhancements
-- Camera streaming (WebRTC and RTSP) - planned for v1.1.0
 - Odometry publishing for SLAM
 - Diagnostics publishing
 - Configurable acceleration limits
 - Motor current monitoring
 - Emergency stop service
+- Camera calibration integration
+- Multiple camera support
+
+---
+
+## [1.1.0] - 2025-09-30
+
+### Added
+
+#### Camera Streaming System
+- **ROS2 camera node** - Created `camera_node.py` for video capture and publishing
+- **WebRTC streaming node** - Created `webrtc_node.py` for low-latency video streaming
+- **Standard ROS2 interfaces** - Implemented `sensor_msgs/Image` and `sensor_msgs/CameraInfo` topics
+- **WebRTC teleoperation** - Built-in HTML interface with joystick controls
+
+#### New Nodes
+- `camera_node` - OpenCV-based camera capture and ROS2 publishing
+  - Configurable resolution, FPS, and encoding
+  - Publishes to `/camera/image_raw` and `/camera/camera_info`
+  - Automatic fallback between device path and ID
+  - QoS-optimized for real-time streaming
+
+- `webrtc_node` - WebRTC streaming server
+  - Subscribes to `/camera/image_raw/compressed`
+  - Provides WebRTC peer connections on port 8080
+  - Built-in HTML teleoperation interface
+  - Automatic frame conversion for WebRTC
+
+#### Configuration Files
+- `config/camera_config.yaml` - Camera hardware and streaming parameters
+  - Device configuration (path/ID, resolution, FPS)
+  - ROS2 topic settings (frame_id, QoS)
+  - Performance tuning options
+
+#### Dependencies
+- Added `python3-opencv`, `python3-aiortc`, `python3-aiohttp` to package.xml
+- Integrated with ROS2 `cv_bridge` and `image_transport`
+
+#### Launch Integration
+- Updated `complete_system.launch.py` to include camera and WebRTC nodes
+- Configurable parameters for all camera streaming components
+
+### Changed
+
+#### setup.py
+- Added `camera_node` and `webrtc_node` entry points
+
+#### package.xml
+- Added camera and WebRTC dependencies
+- Updated build and runtime dependencies
+
+### Technical Details
+
+#### Camera Pipeline
+```
+USB Camera → camera_node → /camera/image_raw (sensor_msgs/Image)
+                      → /camera/camera_info (sensor_msgs/CameraInfo)
+                      → image_transport → /camera/image_raw/compressed
+                      → webrtc_node → WebRTC streams (port 8080)
+```
+
+#### WebRTC Architecture
+- **Signaling**: HTTP endpoints (`/offer`, `/`) on port 8080
+- **Streaming**: Standard WebRTC peer connections
+- **Interface**: Built-in HTML page with video and controls
+- **Compatibility**: Works with any WebRTC-compatible webapp
+
+#### Parameters (camera_node)
+- `device_id`: Camera device ID (default: 0)
+- `device_path`: Camera device path (default: "/dev/video0")
+- `width/height`: Resolution (default: 640x480)
+- `fps`: Target frame rate (default: 30)
+- `encoding`: Image encoding (default: "bgr8")
+- `frame_id`: TF frame ID (default: "camera_optical_frame")
+- `publish_camera_info`: Enable camera info publishing (default: true)
+
+#### Parameters (webrtc_node)
+- `port`: WebRTC server port (default: 8080)
+- `host`: Server bind address (default: "0.0.0.0")
+- `camera_topic`: ROS2 topic to subscribe to (default: "camera/image_raw/compressed")
+
+### Benefits
+- ✅ **Low-latency streaming** - WebRTC provides <100ms latency
+- ✅ **Standard ROS2 topics** - Compatible with existing SLAM packages
+- ✅ **WebRTC native** - Works with custom webapps using standard WebRTC APIs
+- ✅ **Built-in interface** - Immediate teleoperation capability
+- ✅ **VSLAM ready** - Standard Image+CameraInfo topics
+- ✅ **Configurable** - Adjustable resolution, FPS, and quality
+
+### Usage
+
+#### Basic Camera Testing
+```bash
+# Test camera node
+ros2 run joy2 camera_node
+
+# Check topics
+ros2 topic list | grep camera
+ros2 topic hz /camera/image_raw
+```
+
+#### WebRTC Streaming
+```bash
+# Launch complete system with camera
+ros2 launch joy2 complete_system.launch.py
+
+# Access web interface
+# Open browser to http://<raspberry_pi_ip>:8080/
+```
+
+#### Integration with Custom Webapp
+```javascript
+// Standard WebRTC connection
+const pc = new RTCPeerConnection();
+const offer = await pc.createOffer();
+// Send to /offer endpoint, receive answer
+// Video stream will be available in pc.ontrack
+```
+
+### Migration Guide
+
+#### For v1.0.0 Users
+Camera streaming is automatically included in the launch file. No changes required for basic operation.
+
+#### For Custom Webapp Developers
+The WebRTC node provides standard WebRTC streams. Replace any custom streaming code with standard WebRTC peer connections to `ws://<host>:8080/offer`.
+
+### Known Issues
+- WebRTC node requires `python3-aiortc` and `python3-aiohttp` system packages
+- Camera initialization may show GStreamer warnings (normal)
+- Frame rate may be limited by USB bandwidth
+
+### Future Enhancements
+- Camera calibration integration
+- Multiple camera support
+- H.264 hardware encoding
+- RTSP server for alternative clients
+- Recording capabilities
 
 ---
 
 ## [Unreleased]
 
-### Planned for v1.1.0
-- Camera streaming node with WebRTC support
-- RTSP server for SLAM applications
-- Web interface integration
+### Planned for v1.2.0
+- Camera calibration tools
+- Odometry publishing
+- Diagnostics and monitoring
+- Advanced motor control features
 
 ---
 
 **Version History:**
+- **v1.1.0** (2025-09-30) - Camera streaming with WebRTC support
 - **v1.0.0** (2025-09-30) - Initial ROS2 release with decoupled architecture

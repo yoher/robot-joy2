@@ -1,6 +1,6 @@
 # ROS2 Mecanum Robot Workspace
 
-A ROS2 workspace for controlling a mecanum-wheeled robot with comprehensive joystick teleoperation, servo control, and hardware interfaces.
+A ROS2 workspace for controlling a mecanum-wheeled robot with comprehensive joystick teleoperation, servo control, camera streaming, and hardware interfaces.
 
 ## Workspace Overview
 
@@ -41,6 +41,7 @@ ros1/                                    # Workspace root
 **Key Features:**
 - 🎮 Joystick teleoperation with mode switching
 - 🚗 Mecanum wheel motor control (decoupled architecture)
+- 📹 Camera streaming with WebRTC teleoperation
 - 🦾 Servo control (continuous and positional)
 - 🔊 Buzzer control
 - ⚡ Safety features (timeout-based auto-stop)
@@ -51,6 +52,8 @@ ros1/                                    # Workspace root
 **Nodes:**
 - `joy2_teleop` - Joystick input processing and message routing
 - `mecanum_node` - Mecanum drive motor control (subscribes to `/cmd_vel`)
+- `camera_node` - Camera capture and ROS2 image publishing
+- `webrtc_node` - WebRTC video streaming for teleoperation
 - `servo_node` - Servo position control
 - `buzzer_node` - Buzzer activation control
 
@@ -100,6 +103,8 @@ This starts:
 - Joystick driver (`joy_node`)
 - Teleoperation node (`joy2_teleop`)
 - Motor controller (`mecanum_node`)
+- Camera capture (`camera_node`)
+- WebRTC streaming (`webrtc_node`)
 - Servo controller (`servo_node`)
 - Buzzer controller (`buzzer_node`)
 
@@ -131,15 +136,24 @@ This starts:
    │ /cmd_vel
    │
    ▼
-┌──────────────┐
-│ mecanum_node │
-│ (Motors)     │
-└──────────────┘
+┌──────────────┐    ┌──────────────┐
+│ mecanum_node │    │  camera_node │
+│ (Motors)     │    │  (USB Cam)   │
+└──────────────┘    └──────┬───────┘
+                           │ sensor_msgs/Image
+                           │ /camera/image_raw
+                           ▼
+                    ┌──────────────┐
+                    │ webrtc_node  │
+                    │ (WebRTC)     │
+                    │ Port 8080    │
+                    └──────────────┘
 ```
 
 ## Hardware Support
 
 - **Motors:** 4x DC motors with mecanum wheels (via PCA9685)
+- **Camera:** USB camera (V4L2 compatible, e.g., Logitech C920)
 - **Servos:** Continuous and positional servos (via PCA9685)
 - **Peripherals:** Buzzer, I2C devices
 - **Input:** USB gamepad/joystick
@@ -166,6 +180,7 @@ Configuration files are located in `src/joy2/config/`:
 
 - **`teleop_config.yaml`** - Joystick mappings, deadzones, button assignments
 - **`mecanum_config.yaml`** - Motor control parameters, scales, safety settings
+- **`camera_config.yaml`** - Camera hardware and streaming parameters
 - **`servo_config.yaml`** - Servo channel mappings, pulse widths
 - **`buzzer_config.yaml`** - Buzzer configuration
 
@@ -287,7 +302,7 @@ Yoann Hervieux (yoann.hervieux@gmail.com)
 
 ## Version
 
-- **joy2:** 0.0.0 (Development)
+- **joy2:** 1.1.0 (Camera streaming with WebRTC)
 - **joy2_interfaces:** 0.0.0 (Development)
 - **ROS2 Distribution:** Jazzy
 
