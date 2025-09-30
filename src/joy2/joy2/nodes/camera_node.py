@@ -151,8 +151,8 @@ class CameraNode(Node):
                     compressed_msg.header = img_msg.header
                     compressed_msg.format = "jpeg"
 
-                    # Encode frame as JPEG
-                    encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), 80]  # 80% quality
+                    # Encode frame as JPEG with lower quality for reduced latency
+                    encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), 60]  # 60% quality for low latency
                     _, encoded_img = cv2.imencode('.jpg', frame, encode_param)
                     compressed_msg.data = encoded_img.tobytes()
 

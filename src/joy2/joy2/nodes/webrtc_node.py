@@ -55,19 +55,19 @@ class WebRTCVideoStreamTrack(MediaStreamTrack):
             logging.error(f"Traceback: {traceback.format_exc()}")
 
     async def recv(self) -> VideoFrame:
-        """Receive video frame for WebRTC."""
+        """Receive video frame for WebRTC - optimized for low latency."""
         import time
         from fractions import Fraction
         
-        # Add small delay to control frame rate
-        await asyncio.sleep(1/30)  # 30 fps
+        # No artificial delay - let WebRTC handle frame pacing for minimal latency
         
         if self.latest_frame is None:
             # Return black frame if no frame available
             logging.debug("No frame available, returning black frame")
             black_frame = np.zeros((480, 640, 3), dtype=np.uint8)
             video_frame = VideoFrame.from_ndarray(black_frame, format="bgr24")
-            video_frame.pts = int(time.time() * 90000)  # 90kHz clock
+            # Use monotonic clock for consistent timing
+            video_frame.pts = int(time.monotonic() * 90000)  # 90kHz clock
             video_frame.time_base = Fraction(1, 90000)
             return video_frame
 
@@ -76,7 +76,8 @@ class WebRTCVideoStreamTrack(MediaStreamTrack):
 
         # Create VideoFrame
         video_frame = VideoFrame.from_ndarray(rgb_frame, format="rgb24")
-        video_frame.pts = int(time.time() * 90000)  # 90kHz clock
+        # Use monotonic clock for consistent, low-jitter timing
+        video_frame.pts = int(time.monotonic() * 90000)  # 90kHz clock
         video_frame.time_base = Fraction(1, 90000)
         
         logging.debug(f"Sending frame: {rgb_frame.shape}, pts={video_frame.pts}")
