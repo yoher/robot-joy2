@@ -36,6 +36,7 @@ setup(
             'mecanum_node = joy2.nodes.mecanum_node:main',
             'camera_node = joy2.nodes.camera_node:main',
             'webrtc_node = joy2.nodes.webrtc_node:main',
+            'imu_node = joy2.nodes.imu_node:main',
         ],
     },
 )
