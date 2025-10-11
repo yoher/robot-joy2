@@ -1,0 +1,205 @@
+<?xml version="1.0"?>
+
+<robot xmlns:xacro="http://ros.org/wiki/xacro" name="joy2">
+
+  <!-- ================================================================= -->
+
+  <!-- 1. PROPERTIES / CONSTANTS -->
+
+  <!-- ================================================================= -->
+
+  <!-- Math Constant -->
+
+  <xacro:property name="M_PI" value="3.14159265359" />
+
+  <!-- Chassis Dimensions -->
+
+  <xacro:property name="CHASSIS_LENGTH" value="0.4" /> <!-- 40 cm -->
+  <xacro:property name="CHASSIS_WIDTH" value="0.3" />  <!-- 30 cm -->
+  <xacro:property name="CHASSIS_HEIGHT" value="0.1" /> <!-- 10 cm -->
+  <xacro:property name="CHASSIS_MASS" value="5.0" />
+
+  <!-- Wheel Dimensions -->
+
+  <xacro:property name="WHEEL_RADIUS" value="0.05" /> <!-- 5 cm -->
+  <xacro:property name="WHEEL_WIDTH" value="0.05" />
+  <xacro:property name="WHEEL_MASS" value="0.06" />
+
+  <!-- Wheel Placement Offsets (Distance from base center to wheel center) -->
+
+  <xacro:property name="WHEEL_X_OFFSET" value="0.15" />
+  <xacro:property name="WHEEL_Y_OFFSET" value="${(CHASSIS_WIDTH / 2.0) + 0.02}" /> <!-- 0.15 + 0.02
+    = 0.17 -->
+
+  <!-- IMU Placement -->
+
+  <xacro:property name="IMU_Z_OFFSET" value="0.11" /> <!-- Slightly above the chassis top -->
+
+  <!-- ================================================================= -->
+
+  <!-- MATERIALS (Visualization Colors) -->
+
+  <!-- ================================================================= -->
+
+  <material name="black">
+    <color rgba="0.0 0.0 0.0 1.0" />
+  </material>
+  <material name="blue">
+    <color rgba="0.2 0.2 0.8 1.0" />
+  </material>
+  <material name="red">
+    <color rgba="0.8 0.2 0.2 1.0" />
+  </material>
+
+  <!-- ================================================================= -->
+
+  <!-- INERTIA MACRO (Helper for Link Inertia) -->
+
+  <!-- ================================================================= -->
+
+  <xacro:macro name="default_inertial" params="mass ixx iyy izz">
+    <inertial>
+      <mass value="${mass}" />
+
+      <!-- Using defined values for simple boxes/cylinders -->
+
+      <inertia ixx="${ixx}" ixy="0.0" ixz="0.0" iyy="${iyy}" iyz="0.0" izz="${izz}" />
+    </inertial>
+  </xacro:macro>
+
+  <!-- ================================================================= -->
+
+  <!-- BASE LINK (Chassis) -->
+
+  <!-- ================================================================= -->
+
+  <link name="base_link">
+    <visual>
+      <!-- Centering the base link box vertically -->
+      <origin xyz="0 0 ${CHASSIS_HEIGHT / 2}" rpy="0 0 0" />
+      <geometry>
+        <box size="${CHASSIS_LENGTH} ${CHASSIS_WIDTH} ${CHASSIS_HEIGHT}" />
+      </geometry>
+      <material name="blue" />
+    </visual>
+    <collision>
+      <origin xyz="0 0 ${CHASSIS_HEIGHT / 2}" rpy="0 0 0" />
+      <geometry>
+        <box size="${CHASSIS_LENGTH} ${CHASSIS_WIDTH} ${CHASSIS_HEIGHT}" />
+      </geometry>
+    </collision>
+    <!-- Placeholder Inertia for the Chassis (based on mass and approximate geometry) -->
+    <xacro:default_inertial mass="${CHASSIS_MASS}"
+      ixx="0.1" iyy="0.1" izz="0.1" />
+  </link>
+
+  <!-- ================================================================= -->
+
+  <!-- WHEEL MACRO -->
+
+  <!-- ================================================================= -->
+
+  <xacro:macro name="mecanum_wheel" params="side loc x_pos y_pos">
+
+    <!-- Link Definition -->
+
+    <link name="wheel_${side}_${loc}_link">
+      <visual>
+        <!-- Rotate cylinder so its axis aligns with Y -->
+        <origin xyz="0 0 0" rpy="${M_PI/2} 0 0" />
+        <geometry>
+          <cylinder radius="${WHEEL_RADIUS}" length="${WHEEL_WIDTH}" />
+        </geometry>
+        <material name="black" />
+      </visual>
+
+      <collision>
+        <origin xyz="0 0 0" rpy="${M_PI/2} 0 0" />
+        <geometry>
+          <cylinder radius="${WHEEL_RADIUS}" length="${WHEEL_WIDTH}" />
+        </geometry>
+      </collision>
+
+      <xacro:default_inertial
+        mass="${WHEEL_MASS}"
+        ixx="${(WHEEL_MASS/12.0) * (3*WHEEL_RADIUS*WHEEL_RADIUS + WHEEL_WIDTH*WHEEL_WIDTH)}"
+        iyy="${(WHEEL_MASS/2.0) * (WHEEL_RADIUS*WHEEL_RADIUS)}"
+        izz="${(WHEEL_MASS/12.0) * (3*WHEEL_RADIUS*WHEEL_RADIUS + WHEEL_WIDTH*WHEEL_WIDTH)}" />
+    </link>
+
+    <!-- Joint Definition -->
+
+    <joint name="wheel_${side}_${loc}_joint" type="continuous">
+      <parent link="base_link" />
+      <child link="wheel_${side}_${loc}_link" />
+      <!-- Z = wheel radius to touch ground -->
+      <origin xyz="${x_pos} ${y_pos} ${WHEEL_RADIUS}" rpy="0 0 0" />
+      <axis xyz="0 1 0" /> <!-- Y-axis rotation -->
+    </joint>
+
+    <!-- ROS 2 Control Interface (Required for differential/mecanum controllers) -->
+
+    <transmission name="wheel_${side}_${loc}_transmission">
+      <type>transmission_interface/SimpleTransmission</type>
+      <joint name="wheel_${side}_${loc}_joint">
+        <hardwareInterface>velocity</hardwareInterface> <!-- or position, effort -->
+      </joint>
+      <actuator name="wheel_${side}_${loc}_motor">
+        <mechanicalReduction>1</mechanicalReduction>
+      </actuator>
+    </transmission>
+
+  </xacro:macro>
+
+  <!-- ================================================================= -->
+
+  <!-- 4 WHEEL INSTANTIATION (Uses Xacro macro calls) -->
+
+  <!-- ================================================================= -->
+
+  <!-- Front Left Wheel -->
+
+  <xacro:mecanum_wheel side="front" loc="left" x_pos="${WHEEL_X_OFFSET}" y_pos="${WHEEL_Y_OFFSET}" />
+
+  <!-- Front Right Wheel -->
+
+  <xacro:mecanum_wheel side="front" loc="right" x_pos="${WHEEL_X_OFFSET}"
+    y_pos="${-WHEEL_Y_OFFSET}" />
+
+  <!-- Rear Left Wheel -->
+
+  <xacro:mecanum_wheel side="rear" loc="left" x_pos="${-WHEEL_X_OFFSET}" y_pos="${WHEEL_Y_OFFSET}" />
+
+  <!-- Rear Right Wheel -->
+
+  <xacro:mecanum_wheel side="rear" loc="right" x_pos="${-WHEEL_X_OFFSET}"
+    y_pos="${-WHEEL_Y_OFFSET}" />
+
+  <!-- ================================================================= -->
+
+  <!-- SENSOR DEFINITION (IMU) -->
+
+  <!-- ================================================================= -->
+
+  <link name="imu_link">
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <box size="0.01 0.01 0.01" />
+      </geometry>
+      <material name="red" />
+    </visual>
+    <!-- Tiny placeholder inertia -->
+    <xacro:default_inertial
+      mass="0.01"
+      ixx="1e-6" iyy="1e-6" izz="1e-6" />
+  </link>
+
+  <joint name="imu_joint" type="fixed">
+    <parent link="base_link" />
+    <child link="imu_link" />
+    <!-- Position Z: Using a property for the placement -->
+    <origin xyz="0 0 ${IMU_Z_OFFSET}" rpy="0 0 0" />
+  </joint>
+
+</robot>

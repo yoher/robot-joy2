@@ -1,0 +1,26 @@
+mecanum_node:
+  ros__parameters:
+    # Hardware configuration
+    pca_address: 0x60          # I2C address of PCA9685 (hexadecimal)
+    motor_frequency: 50.0      # PWM frequency in Hz
+    
+    # Control scaling
+    translation_scale: 0.6     # Scale factor for linear movements (0.0-1.0)
+    rotation_scale: 0.6        # Scale factor for rotation (0.0-1.0)
+    
+    # Performance tuning
+    eps: 0.02                  # Change detection threshold (reduces I2C spam)
+                               # Only sends motor commands when speed changes by more than this value
+                               # Range: 0.0-1.0 (typically 0.01-0.05)
+                               # Smaller = more responsive but more I2C traffic
+                               # Larger = less responsive but less bus load
+    
+    # Kinematics
+    invert_omega: false        # Set true if rotation direction is reversed
+    
+    # Safety
+    cmd_timeout: 1.0           # Auto-stop after this many seconds without commands
+                               # Prevents runaway robot if teleop crashes
+    
+    # Debugging
+    verbose: false             # Enable detailed motor command logging

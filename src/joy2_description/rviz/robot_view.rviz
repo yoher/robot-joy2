@@ -1,0 +1,72 @@
+Panels:
+  - Class: rviz_common/Displays
+    Name: Displays
+    Property Tree Widget:
+      Expanded: ~/
+      Splitter Ratio: 0.5
+Visualization Manager:
+  Class: rviz_common/VisualizationManager
+  Displays:
+    - Class: rviz_default_plugins/Grid
+      Name: Grid
+      Value: true
+      Grid:
+        Color: 160 160 160
+        Line Style: Lines
+        Plane Cell Count: 10
+        Reference Frame: <Fixed Frame>
+    - Class: rviz_default_plugins/RobotModel
+      Name: RobotModel
+      Value: true
+      Description Topic:
+        Value: /robot_description
+      Visual Enabled: true
+      Collision Enabled: false
+      Alpha: 1
+    - Class: rviz_default_plugins/TF
+      Name: TF
+      Value: true
+      Marker Scale: 0.3
+      Show Arrows: true
+      Show Axes: true
+      Show Names: true
+    - Class: rviz_default_plugins/Odometry
+      Name: Odometry
+      Value: false
+      Topic:
+        Value: /odom
+      Angle Tolerance: 0.1
+      Keep: 100
+      Position Tolerance: 0.1
+  Global Options:
+    Background Color: 48 48 48
+    Fixed Frame: base_link
+    Frame Rate: 30
+  Tools:
+    - Class: rviz_default_plugins/Interact
+      Name: Interact
+    - Class: rviz_default_plugins/MoveCamera
+      Name: Move Camera
+    - Class: rviz_default_plugins/Select
+      Name: Select
+    - Class: rviz_default_plugins/FocusCamera
+      Name: Focus Camera
+    - Class: rviz_default_plugins/Measure
+      Name: Measure
+  Views:
+    Current:
+      Class: rviz_default_plugins/Orbit
+      Name: Current View
+      Target Frame: <Fixed Frame>
+      Distance: 2.0
+      Pitch: 0.5
+      Yaw: 0.8
+      Focal Point:
+        X: 0.0
+        Y: 0.0
+        Z: 0.0
+  Window Geometry:
+    X: 100
+    Y: 100
+    Width: 1200
+    Height: 800

@@ -1,0 +1,37 @@
+# Servo configuration file
+ros__parameters:
+    pca_address: 0x60
+    servo_frequency: 50.0
+    servos:
+      continuous:
+        c1:
+          channel: 8         # PCA channel this servo is connected to
+          min_us: 1000.0     # Min PWM pulse duration (us)
+          max_us: 2000.0     # Max PWM pulse duration (us)
+          center_us: 1570.0  # Center PWM pulse duration (us)
+          deadzone: 0.05     # Deadzone (speed command within range [-1.0,+1.0])
+        c2:
+          channel: 9
+          min_us: 1000.0
+          max_us: 2000.0
+          center_us: 1570.0
+          deadzone: 0.05
+      positional:
+        p1:
+          channel: 10          # PCA channel this servo is connected to
+          min_angle: 0.0       # Min angle command (degree)
+          max_angle: 180.0     # Max angle command (degree)
+          default_angle: 90.0  # Initialization angle (degree)
+          min_us: 1000.0       # Min PWM pulse duration (us)
+          max_us: 2000.0       # Max PWM pulse duration (us)
+          center_us: 1500.0    # Center PWM pulse duration (us)
+          deadzone: 1          # Deadzone (degree)
+        p2:
+          channel: 11
+          min_angle: 0.0
+          max_angle: 180.0
+          default_angle: 90.0
+          min_us: 1000.0
+          max_us: 2000.0
+          center_us: 1500.0
+          deadzone: 1
