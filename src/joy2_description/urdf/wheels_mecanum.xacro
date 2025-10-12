@@ -1,0 +1,161 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+<xacro:macro name="joy2_mecanum_wheels">
+  <xacro:property name="MEC_WHEEL_RADIUS" value="0.05"/>
+  <xacro:property name="MEC_WHEEL_WIDTH" value="0.05"/>
+  <xacro:property name="MEC_WHEEL_MASS" value="0.06"/>
+  <xacro:property name="MEC_WHEEL_X_OFFSET" value="0.15"/>
+  <xacro:property name="MEC_WHEEL_Y_OFFSET" value="0.17"/>
+
+  <!-- Front Left Wheel -->
+  <link name="wheel_front_left_link">
+    <visual>
+      <origin xyz="0 0 0" rpy="${M_PI/2} 0 0"/>
+      <geometry>
+        <cylinder radius="${MEC_WHEEL_RADIUS}" length="${MEC_WHEEL_WIDTH}"/>
+      </geometry>
+      <material name="black"/>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="${M_PI/2} 0 0"/>
+      <geometry>
+        <cylinder radius="${MEC_WHEEL_RADIUS}" length="${MEC_WHEEL_WIDTH}"/>
+      </geometry>
+    </collision>
+    <xacro:default_inertial
+      mass="${MEC_WHEEL_MASS}"
+      ixx="${(MEC_WHEEL_MASS/12.0) * (3*MEC_WHEEL_RADIUS*MEC_WHEEL_RADIUS + MEC_WHEEL_WIDTH*MEC_WHEEL_WIDTH)}"
+      iyy="${(MEC_WHEEL_MASS/2.0) * (MEC_WHEEL_RADIUS*MEC_WHEEL_RADIUS)}"
+      izz="${(MEC_WHEEL_MASS/12.0) * (3*MEC_WHEEL_RADIUS*MEC_WHEEL_RADIUS + MEC_WHEEL_WIDTH*MEC_WHEEL_WIDTH)}"/>
+  </link>
+  <joint name="wheel_front_left_joint" type="continuous">
+    <parent link="base_link"/>
+    <child link="wheel_front_left_link"/>
+    <origin xyz="${MEC_WHEEL_X_OFFSET} ${MEC_WHEEL_Y_OFFSET} ${MEC_WHEEL_RADIUS}" rpy="0 0 0"/>
+    <axis xyz="0 1 0"/>
+  </joint>
+  <transmission name="wheel_front_left_transmission">
+    <type>transmission_interface/SimpleTransmission</type>
+    <joint name="wheel_front_left_joint">
+      <hardwareInterface>velocity</hardwareInterface>
+    </joint>
+    <actuator name="wheel_front_left_motor">
+      <mechanicalReduction>1</mechanicalReduction>
+    </actuator>
+  </transmission>
+
+  <!-- Front Right Wheel -->
+  <link name="wheel_front_right_link">
+    <visual>
+      <origin xyz="0 0 0" rpy="${M_PI/2} 0 0"/>
+      <geometry>
+        <cylinder radius="${MEC_WHEEL_RADIUS}" length="${MEC_WHEEL_WIDTH}"/>
+      </geometry>
+      <material name="black"/>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="${M_PI/2} 0 0"/>
+      <geometry>
+        <cylinder radius="${MEC_WHEEL_RADIUS}" length="${MEC_WHEEL_WIDTH}"/>
+      </geometry>
+    </collision>
+    <xacro:default_inertial
+      mass="${MEC_WHEEL_MASS}"
+      ixx="${(MEC_WHEEL_MASS/12.0) * (3*MEC_WHEEL_RADIUS*MEC_WHEEL_RADIUS + MEC_WHEEL_WIDTH*MEC_WHEEL_WIDTH)}"
+      iyy="${(MEC_WHEEL_MASS/2.0) * (MEC_WHEEL_RADIUS*MEC_WHEEL_RADIUS)}"
+      izz="${(MEC_WHEEL_MASS/12.0) * (3*MEC_WHEEL_RADIUS*MEC_WHEEL_RADIUS + MEC_WHEEL_WIDTH*MEC_WHEEL_WIDTH)}"/>
+  </link>
+  <joint name="wheel_front_right_joint" type="continuous">
+    <parent link="base_link"/>
+    <child link="wheel_front_right_link"/>
+    <origin xyz="${MEC_WHEEL_X_OFFSET} ${-MEC_WHEEL_Y_OFFSET} ${MEC_WHEEL_RADIUS}" rpy="0 0 0"/>
+    <axis xyz="0 1 0"/>
+  </joint>
+  <transmission name="wheel_front_right_transmission">
+    <type>transmission_interface/SimpleTransmission</type>
+    <joint name="wheel_front_right_joint">
+      <hardwareInterface>velocity</hardwareInterface>
+    </joint>
+    <actuator name="wheel_front_right_motor">
+      <mechanicalReduction>1</mechanicalReduction>
+    </actuator>
+  </transmission>
+
+  <!-- Rear Left Wheel -->
+  <link name="wheel_rear_left_link">
+    <visual>
+      <origin xyz="0 0 0" rpy="${M_PI/2} 0 0"/>
+      <geometry>
+        <cylinder radius="${MEC_WHEEL_RADIUS}" length="${MEC_WHEEL_WIDTH}"/>
+      </geometry>
+      <material name="black"/>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="${M_PI/2} 0 0"/>
+      <geometry>
+        <cylinder radius="${MEC_WHEEL_RADIUS}" length="${MEC_WHEEL_WIDTH}"/>
+      </geometry>
+    </collision>
+    <xacro:default_inertial
+      mass="${MEC_WHEEL_MASS}"
+      ixx="${(MEC_WHEEL_MASS/12.0) * (3*MEC_WHEEL_RADIUS*MEC_WHEEL_RADIUS + MEC_WHEEL_WIDTH*MEC_WHEEL_WIDTH)}"
+      iyy="${(MEC_WHEEL_MASS/2.0) * (MEC_WHEEL_RADIUS*MEC_WHEEL_RADIUS)}"
+      izz="${(MEC_WHEEL_MASS/12.0) * (3*MEC_WHEEL_RADIUS*MEC_WHEEL_RADIUS + MEC_WHEEL_WIDTH*MEC_WHEEL_WIDTH)}"/>
+  </link>
+  <joint name="wheel_rear_left_joint" type="continuous">
+    <parent link="base_link"/>
+    <child link="wheel_rear_left_link"/>
+    <origin xyz="${-MEC_WHEEL_X_OFFSET} ${MEC_WHEEL_Y_OFFSET} ${MEC_WHEEL_RADIUS}" rpy="0 0 0"/>
+    <axis xyz="0 1 0"/>
+  </joint>
+  <transmission name="wheel_rear_left_transmission">
+    <type>transmission_interface/SimpleTransmission</type>
+    <joint name="wheel_rear_left_joint">
+      <hardwareInterface>velocity</hardwareInterface>
+    </joint>
+    <actuator name="wheel_rear_left_motor">
+      <mechanicalReduction>1</mechanicalReduction>
+    </actuator>
+  </transmission>
+
+  <!-- Rear Right Wheel -->
+  <link name="wheel_rear_right_link">
+    <visual>
+      <origin xyz="0 0 0" rpy="${M_PI/2} 0 0"/>
+      <geometry>
+        <cylinder radius="${MEC_WHEEL_RADIUS}" length="${MEC_WHEEL_WIDTH}"/>
+      </geometry>
+      <material name="black"/>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="${M_PI/2} 0 0"/>
+      <geometry>
+        <cylinder radius="${MEC_WHEEL_RADIUS}" length="${MEC_WHEEL_WIDTH}"/>
+      </geometry>
+    </collision>
+    <xacro:default_inertial
+      mass="${MEC_WHEEL_MASS}"
+      ixx="${(MEC_WHEEL_MASS/12.0) * (3*MEC_WHEEL_RADIUS*MEC_WHEEL_RADIUS + MEC_WHEEL_WIDTH*MEC_WHEEL_WIDTH)}"
+      iyy="${(MEC_WHEEL_MASS/2.0) * (MEC_WHEEL_RADIUS*MEC_WHEEL_RADIUS)}"
+      izz="${(MEC_WHEEL_MASS/12.0) * (3*MEC_WHEEL_RADIUS*MEC_WHEEL_RADIUS + MEC_WHEEL_WIDTH*MEC_WHEEL_WIDTH)}"/>
+  </link>
+  <joint name="wheel_rear_right_joint" type="continuous">
+    <parent link="base_link"/>
+    <child link="wheel_rear_right_link"/>
+    <origin xyz="${-MEC_WHEEL_X_OFFSET} ${-MEC_WHEEL_Y_OFFSET} ${MEC_WHEEL_RADIUS}" rpy="0 0 0"/>
+    <axis xyz="0 1 0"/>
+  </joint>
+  <transmission name="wheel_rear_right_transmission">
+    <type>transmission_interface/SimpleTransmission</type>
+    <joint name="wheel_rear_right_joint">
+      <hardwareInterface>velocity</hardwareInterface>
+    </joint>
+    <actuator name="wheel_rear_right_motor">
+      <mechanicalReduction>1</mechanicalReduction>
+    </actuator>
+  </transmission>
+
+</xacro:macro>
+
+</robot>
