@@ -59,6 +59,7 @@ def generate_launch_description():
     return LaunchDescription([
         DeclareLaunchArgument('drive_type', default_value='mecanum'),
         DeclareLaunchArgument('use_sim_time', default_value='false'),
+        DeclareLaunchArgument('use_sim', default_value='false'),
         controller_manager_node,
         joint_state_broadcaster_spawner,
         mecanum_controller_spawner

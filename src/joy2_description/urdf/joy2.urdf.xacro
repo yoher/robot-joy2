@@ -101,8 +101,31 @@
       </geometry>
       <material name="red"/>
     </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <box size="0.01 0.01 0.01"/>
+      </geometry>
+    </collision>
     <xacro:default_inertial mass="0.01"
                             ixx="1e-6" iyy="1e-6" izz="1e-6"/>
+
+    <!-- Gazebo IMU Plugin for simulation -->
+    <gazebo>
+      <plugin name="imu_plugin" filename="libgazebo_ros_imu_sensor.so">
+        <ros>
+          <namespace>/</namespace>
+          <remapping>~/out:=/imu/data</remapping>
+        </ros>
+        <update_rate>50.0</update_rate>
+        <imu>
+          <topicName>imu</topicName>
+          <frameName>imu_link</frameName>
+          <linear_accel_noise>0.0</linear_accel_noise>
+          <angular_vel_noise>0.0</angular_vel_noise>
+        </imu>
+      </plugin>
+    </gazebo>
   </link>
 
   <joint name="imu_joint" type="fixed">

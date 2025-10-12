@@ -6,7 +6,7 @@ from launch.actions import (
 )
 from launch.conditions import IfCondition
 from launch.launch_description_sources import PythonLaunchDescriptionSource
-from launch.substitutions import LaunchConfiguration, PathJoinSubstitution, EqualsSubstitution
+from launch.substitutions import LaunchConfiguration, PathJoinSubstitution, EqualsSubstitution, NotEqualsSubstitution
 from launch_ros.actions import Node
 from launch_ros.substitutions import FindPackageShare
 
@@ -48,11 +48,14 @@ def generate_launch_description():
         condition=IfCondition(EqualsSubstitution(LaunchConfiguration('drive_type'), 'diff'))
     )
 
+    use_sim = LaunchConfiguration('use_sim')
+
     imu_node = Node(
         package='joy2_control',
         executable='imu_node',
         name='imu_node',
         output='screen',
+        condition=IfCondition(NotEqualsSubstitution(use_sim, 'true')),
         parameters=[{
             'config_file': PathJoinSubstitution([
                 joy2_control_share,
@@ -73,6 +76,11 @@ def generate_launch_description():
             'use_sim_time',
             default_value='false',
             description='Use simulation time if true'
+        ),
+        DeclareLaunchArgument(
+            'use_sim',
+            default_value='false',
+            description='Use simulation (Gazebo) instead of real hardware'
         ),
         SetEnvironmentVariable(
             name='RCUTILS_CONSOLE_OUTPUT_FORMAT',
