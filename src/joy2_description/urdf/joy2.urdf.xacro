@@ -4,7 +4,6 @@
 
   <!-- Drive type argument -->
   <xacro:arg name="drive_type" default="mecanum"/>
-  <xacro:property name="drive_type" value="${drive_type}"/>
 
   <!-- ================================================================= -->
   <!-- 1. PROPERTIES / CONSTANTS                                        -->

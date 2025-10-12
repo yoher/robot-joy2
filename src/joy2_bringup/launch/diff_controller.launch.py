@@ -24,11 +24,10 @@ def generate_launch_description():
 
     robot_description = ParameterValue(
         Command([
-            FindExecutable(name='ros2'),
-            'run',
-            'xacro',
-            'xacro',
+            FindExecutable(name='xacro'),
+            ' ',
             xacro_file,
+            ' ',
             drive_param
         ]),
         value_type=str

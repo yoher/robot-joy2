@@ -28,8 +28,7 @@ def generate_launch_description():
             ' ',
             xacro_file,
             ' ',
-            'drive_type:=',
-            drive_type
+            PythonExpression(["'drive_type:=' + '", drive_type, "'"])
         ]),
         value_type=str
     )
