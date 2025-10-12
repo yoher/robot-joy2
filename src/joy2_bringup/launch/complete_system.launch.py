@@ -4,9 +4,9 @@ from launch.actions import (
     DeclareLaunchArgument,
     IncludeLaunchDescription,
 )
-from launch.conditions import LaunchConfigurationEquals
+from launch.conditions import IfCondition
 from launch.launch_description_sources import PythonLaunchDescriptionSource
-from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
+from launch.substitutions import LaunchConfiguration, PathJoinSubstitution, EqualsSubstitution
 from launch_ros.actions import Node
 from launch_ros.substitutions import FindPackageShare
 
@@ -30,7 +30,7 @@ def generate_launch_description():
             'drive_type': drive_type,
             'use_sim_time': use_sim_time
         }.items(),
-        condition=LaunchConfigurationEquals('drive_type', 'mecanum')
+        condition=IfCondition(EqualsSubstitution(LaunchConfiguration('drive_type'), 'mecanum'))
     )
 
     diff_controller_launch = IncludeLaunchDescription(
@@ -45,7 +45,7 @@ def generate_launch_description():
             'drive_type': drive_type,
             'use_sim_time': use_sim_time
         }.items(),
-        condition=LaunchConfigurationEquals('drive_type', 'diff')
+        condition=IfCondition(EqualsSubstitution(LaunchConfiguration('drive_type'), 'diff'))
     )
 
     imu_node = Node(
