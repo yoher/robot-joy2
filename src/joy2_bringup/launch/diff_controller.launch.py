@@ -17,7 +17,7 @@ def generate_launch_description():
     use_sim_time = LaunchConfiguration('use_sim_time')
 
     joy2_description_share = FindPackageShare('joy2_description')
-    joy2_share = FindPackageShare('joy2')
+    joy2_control_share = FindPackageShare('joy2_control')
 
     xacro_file = PathJoinSubstitution([joy2_description_share, 'urdf', 'joy2.urdf.xacro'])
     drive_param = PythonExpression(["'drive_type:=' + '", drive_type, "'"])
@@ -33,7 +33,7 @@ def generate_launch_description():
         value_type=str
     )
 
-    diff_config = PathJoinSubstitution([joy2_share, 'config', 'diff_controller.yaml'])
+    diff_config = PathJoinSubstitution([joy2_control_share, 'config', 'diff_controller.yaml'])
 
     controller_manager_node = Node(
         package='controller_manager',

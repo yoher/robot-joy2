@@ -5,7 +5,7 @@ from launch_ros.actions import Node
 def generate_launch_description():
     return LaunchDescription([
         Node(
-            package='joy2',
+            package='joy2_control',
             executable='servo_node',
             name='servo_node',
             output='screen',
