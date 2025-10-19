@@ -2,6 +2,10 @@ controller_manager:
   ros__parameters:
     update_rate: 100  # Hz
 
+    # Velocity Command Forwarder (for chainable controller)
+    velocity_controller:
+      type: forward_command_controller/ForwardCommandController
+
     # Joint State Broadcaster
     joint_state_broadcaster:
       type: joint_state_broadcaster/JointStateBroadcaster
@@ -9,35 +13,69 @@ controller_manager:
     # Mecanum Drive Controller
     mecanum_controller:
       type: mecanum_drive_controller/MecanumDriveController
+
+velocity_controller:
+  ros__parameters:
+    joints:
+      - mecanum_controller/linear/x
+      - mecanum_controller/linear/y
+      - mecanum_controller/angular/z
+    interface_name: velocity
       
 mecanum_controller:
   ros__parameters:
-    left_wheel_names: ["wheel_front_left_joint", "wheel_rear_left_joint"]
-    right_wheel_names: ["wheel_front_right_joint", "wheel_rear_right_joint"]
+    # Reference interfaces (for chainable controller)
+    reference_timeout: 2.0
     
-    wheel_separation_x: 0.4  # Distance between front and rear wheels (m)
-    wheel_separation_y: 0.3  # Distance between left and right wheels (m)
-    wheel_radius: 0.05       # Wheel radius (m)
+    # Wheel joint names - command interfaces
+    front_left_wheel_command_joint_name: "wheel_front_left_joint"
+    front_right_wheel_command_joint_name: "wheel_front_right_joint"
+    rear_left_wheel_command_joint_name: "wheel_rear_left_joint"
+    rear_right_wheel_command_joint_name: "wheel_rear_right_joint"
     
-    # Command and state interfaces
-    command_interfaces: ["velocity"]
-    state_interfaces: ["position", "velocity"]
+    # Wheel joint names - state interfaces (feedback)
+    front_left_wheel_state_joint_name: "wheel_front_left_joint"
+    front_right_wheel_state_joint_name: "wheel_front_right_joint"
+    rear_left_wheel_state_joint_name: "wheel_rear_left_joint"
+    rear_right_wheel_state_joint_name: "wheel_rear_right_joint"
     
-    # Kinematics
+    # Kinematics parameters
     kinematics:
-      base_frame_id: "base_link"
-      odom_frame_id: "odom"
-      enable_odom_tf: true
+      wheels_separation_x: 0.3  # Distance between front and rear wheels (m) - 2 * 0.15
+      wheels_separation_y: 0.34  # Distance between left and right wheels (m) - 2 * 0.17
+      wheels_radius: 0.05       # Wheel radius (m)
+      base_frame_offset:
+        x: 0.0
+        y: 0.0
+        theta: 0.0
+    
+    # Frame IDs
+    base_frame_id: "base_link"
+    odom_frame_id: "odom"
+    enable_odom_tf: true
+    
+    # Command timeout
+    cmd_vel_timeout: 0.5
     
     # Velocity and acceleration limits
     linear:
       x:
+        has_velocity_limits: true
         max_velocity: 1.0
+        has_acceleration_limits: true
+        max_acceleration: 1.0
+        min_acceleration: -1.0
+      y:
+        has_velocity_limits: true
+        max_velocity: 1.0
+        has_acceleration_limits: true
         max_acceleration: 1.0
         min_acceleration: -1.0
     angular:
       z:
+        has_velocity_limits: true
         max_velocity: 1.0
+        has_acceleration_limits: true
         max_acceleration: 1.0
         min_acceleration: -1.0
 

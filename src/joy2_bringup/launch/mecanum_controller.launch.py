@@ -56,11 +56,19 @@ def generate_launch_description():
         output='screen'
     )
 
+    velocity_controller_spawner = Node(
+        package='controller_manager',
+        executable='spawner',
+        arguments=['velocity_controller', '--controller-manager', '/controller_manager', '--param-file', mecanum_config],
+        output='screen'
+    )
+
     return LaunchDescription([
         DeclareLaunchArgument('drive_type', default_value='mecanum'),
         DeclareLaunchArgument('use_sim_time', default_value='false'),
         DeclareLaunchArgument('use_sim', default_value='false'),
         controller_manager_node,
         joint_state_broadcaster_spawner,
-        mecanum_controller_spawner
+        mecanum_controller_spawner,
+        velocity_controller_spawner
     ])
