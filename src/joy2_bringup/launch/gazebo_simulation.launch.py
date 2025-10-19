@@ -3,14 +3,16 @@ from launch.actions import (
     DeclareLaunchArgument,
     ExecuteProcess,
     IncludeLaunchDescription,
-    TimerAction
+    TimerAction,
+    OpaqueFunction
 )
-from launch.conditions import IfCondition
+from launch.conditions import IfCondition, UnlessCondition
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration, PathJoinSubstitution, Command, TextSubstitution
 from launch_ros.actions import Node
 from launch_ros.parameter_descriptions import ParameterValue
 from launch_ros.substitutions import FindPackageShare
+from ament_index_python.packages import get_package_share_directory
 import os
 
 def generate_launch_description():
@@ -24,23 +26,54 @@ def generate_launch_description():
     joy2_bringup_share = FindPackageShare('joy2_bringup')
     joy2_description_share = FindPackageShare('joy2_description')
 
-    # Gazebo launch
-    gazebo_launch = ExecuteProcess(
-        cmd=['gz', 'sim', '-r', '-s'],
+    # World file path - get as string
+    world_file = os.path.join(
+        get_package_share_directory('joy2_bringup'),
+        'worlds',
+        'empty_world.sdf'
+    )
+
+    # Set up Gazebo environment - add ros2_control plugin path
+    gz_env = os.environ.copy()
+    gz_plugin_path = '/opt/ros/jazzy/lib'
+    if 'GZ_SIM_SYSTEM_PLUGIN_PATH' in gz_env:
+        gz_env['GZ_SIM_SYSTEM_PLUGIN_PATH'] = gz_env['GZ_SIM_SYSTEM_PLUGIN_PATH'] + ':' + gz_plugin_path
+    else:
+        gz_env['GZ_SIM_SYSTEM_PLUGIN_PATH'] = gz_plugin_path
+
+    # Gazebo launch with GUI
+    gazebo_launch_gui = ExecuteProcess(
+        cmd=['gz', 'sim', '-r', world_file],
+        output='screen',
+        additional_env=gz_env,
+        condition=IfCondition(use_gui)
+    )
+    
+    # Gazebo launch headless
+    gazebo_launch_headless = ExecuteProcess(
+        cmd=['gz', 'sim', '-r', '-s', world_file],
+        output='screen',
+        additional_env=gz_env,
+        condition=UnlessCondition(use_gui)
+    )
+
+    # Robot spawn using ros_gz_sim spawner (more reliable)
+    robot_spawn = Node(
+        package='ros_gz_sim',
+        executable='create',
+        name='spawn_robot',
+        arguments=[
+            '-world', 'empty_world',
+            '-topic', '/robot_description',
+            '-name', 'joy2',
+            '-x', '0.0',
+            '-y', '0.0', 
+            '-z', '0.15'  # Spawn 15cm above ground to prevent collision on spawn
+        ],
         output='screen'
     )
 
-    # Robot spawn (simplified)
-    robot_spawn = ExecuteProcess(
-        cmd=['gz', 'service', '-s', '/world/empty/create',
-             '--reqtype', 'gz.msgs.EntityFactory',
-             '--reptype', 'gz.msgs.Boolean',
-             '--timeout', '5000',
-             '--req', 'name: "joy2", pose: {position: {x: 0.0, y: 0.0, z: 0.1}}'],
-        output='screen'
-    )
-
-    # Robot state publisher
+    # Robot state publisher (always needed)
     robot_state_publisher = Node(
         package='robot_state_publisher',
         executable='robot_state_publisher',
@@ -58,6 +91,17 @@ def generate_launch_description():
             ),
             'use_sim_time': use_sim_time
         }]
+    )
+
+    # Joint state publisher GUI for manual control (when ROS2 Control isn't available)
+    # This publishes joint states which robot_state_publisher uses to compute TF transforms
+    joint_state_publisher_gui = Node(
+        package='joint_state_publisher_gui',
+        executable='joint_state_publisher_gui',
+        name='joint_state_publisher_gui',
+        output='screen',
+        parameters=[{'use_sim_time': use_sim_time}],
+        condition=IfCondition(use_gui)
     )
 
     # ROS-Gazebo bridge
@@ -124,23 +168,32 @@ def generate_launch_description():
             description='Launch GUI windows (Gazebo and RViz)'
         ),
 
-        # Start Gazebo
-        gazebo_launch,
+        # Start Gazebo (conditional GUI)
+        gazebo_launch_gui,
+        gazebo_launch_headless,
 
         # Timer to ensure Gazebo is ready before starting nodes
         TimerAction(
-            period=3.0,
+            period=5.0,  # Increased from 3.0 to give Gazebo more time
             actions=[
                 robot_state_publisher,
                 bridge,
+                joint_state_publisher_gui,
+            ]
+        ),
+
+        # Start control system after robot description is available
+        TimerAction(
+            period=7.0,  # Increased timing
+            actions=[
                 control_system,
                 rviz
             ]
         ),
 
-        # Robot spawn after delay
+        # Robot spawn after everything else is ready
         TimerAction(
-            period=6.0,
+            period=10.0,  # Increased from 6.0 to ensure everything is ready
             actions=[robot_spawn]
         ),
     ])

@@ -1,0 +1,53 @@
+controller_manager:
+  ros__parameters:
+    update_rate: 100  # Hz
+
+    # Joint State Broadcaster
+    joint_state_broadcaster:
+      type: joint_state_broadcaster/JointStateBroadcaster
+
+    # Mecanum Drive Controller
+    mecanum_controller:
+      type: mecanum_drive_controller/MecanumDriveController
+      
+mecanum_controller:
+  ros__parameters:
+    left_wheel_names: ["wheel_front_left_joint", "wheel_rear_left_joint"]
+    right_wheel_names: ["wheel_front_right_joint", "wheel_rear_right_joint"]
+    
+    wheel_separation_x: 0.4  # Distance between front and rear wheels (m)
+    wheel_separation_y: 0.3  # Distance between left and right wheels (m)
+    wheel_radius: 0.05       # Wheel radius (m)
+    
+    # Command and state interfaces
+    command_interfaces: ["velocity"]
+    state_interfaces: ["position", "velocity"]
+    
+    # Kinematics
+    kinematics:
+      base_frame_id: "base_link"
+      odom_frame_id: "odom"
+      enable_odom_tf: true
+    
+    # Velocity and acceleration limits
+    linear:
+      x:
+        max_velocity: 1.0
+        max_acceleration: 1.0
+        min_acceleration: -1.0
+    angular:
+      z:
+        max_velocity: 1.0
+        max_acceleration: 1.0
+        min_acceleration: -1.0
+
+joint_state_broadcaster:
+  ros__parameters:
+    joints:
+      - wheel_front_left_joint
+      - wheel_front_right_joint
+      - wheel_rear_left_joint
+      - wheel_rear_right_joint
+    interfaces:
+      - position
+      - velocity

@@ -140,7 +140,7 @@
   <!-- ROS2 Control Configuration -->
   <ros2_control name="GazeboSystem" type="system">
     <hardware>
-      <plugin>gz_ros2_control/GazeboSystem</plugin>
+      <plugin>gz_ros2_control/GazeboSimSystem</plugin>
     </hardware>
     <joint name="wheel_front_left_joint">
       <command_interface name="velocity"/>
@@ -163,5 +163,12 @@
       <state_interface name="position"/>
     </joint>
   </ros2_control>
+
+  <!-- Gazebo Plugin for ROS2 Control -->
+  <gazebo>
+    <plugin filename="gz_ros2_control-system" name="gz_ros2_control::GazeboSimROS2ControlPlugin">
+      <parameters>$(find joy2_control)/config/mecanum_controller.yaml</parameters>
+    </plugin>
+  </gazebo>
 
 </robot>
