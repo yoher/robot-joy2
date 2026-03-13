@@ -1,5 +1,6 @@
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument
+from launch.conditions import UnlessCondition
 from launch.substitutions import (
     LaunchConfiguration,
     PathJoinSubstitution,
@@ -15,6 +16,7 @@ from launch_ros.substitutions import FindPackageShare
 def generate_launch_description():
     drive_type = LaunchConfiguration('drive_type')
     use_sim_time = LaunchConfiguration('use_sim_time')
+    use_sim = LaunchConfiguration('use_sim')
 
     joy2_description_share = FindPackageShare('joy2_description')
     joy2_control_share = FindPackageShare('joy2_control')
@@ -35,11 +37,14 @@ def generate_launch_description():
 
     mecanum_config = PathJoinSubstitution([joy2_control_share, 'config', 'mecanum_controller.yaml'])
 
+    # Only launch controller_manager_node on real hardware (not in simulation)
+    # In Gazebo, the controller_manager is built into the GazeboSimSystem plugin
     controller_manager_node = Node(
         package='controller_manager',
         executable='ros2_control_node',
         parameters=[mecanum_config, {'robot_description': robot_description, 'use_sim_time': use_sim_time}],
-        output='screen'
+        output='screen',
+        condition=UnlessCondition(use_sim)
     )
 
     joint_state_broadcaster_spawner = Node(
@@ -56,19 +61,11 @@ def generate_launch_description():
         output='screen'
     )
 
-    velocity_controller_spawner = Node(
-        package='controller_manager',
-        executable='spawner',
-        arguments=['velocity_controller', '--controller-manager', '/controller_manager', '--param-file', mecanum_config],
-        output='screen'
-    )
-
     return LaunchDescription([
         DeclareLaunchArgument('drive_type', default_value='mecanum'),
         DeclareLaunchArgument('use_sim_time', default_value='false'),
         DeclareLaunchArgument('use_sim', default_value='false'),
         controller_manager_node,
         joint_state_broadcaster_spawner,
-        mecanum_controller_spawner,
-        velocity_controller_spawner
+        mecanum_controller_spawner
     ])
